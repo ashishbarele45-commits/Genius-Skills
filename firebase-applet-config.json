@@ -1,0 +1,12 @@
+{
+  "projectId": "genius-course",
+  "appId": "1:465240710133:web:92b9f4b555ff3d915e5ebc",
+  "apiKey": "AIzaSyC2SDgR1jsvq4TnaVvLu-8mFvKgLsZJv1s",
+  "authDomain": "genius-course.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-geniusskills-f2da509d-52b5-43d4-91f4-07c7883272ae",
+  "storageBucket": "genius-course.firebasestorage.app",
+  "messagingSenderId": "465240710133",
+  "measurementId": "G-HTBS4F82EP",
+  "oAuthClientId": "131870111525-25rram6379jdiha4ae1im1bdseqmcqvt.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
+}

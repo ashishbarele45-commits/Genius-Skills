@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["STUDENT", "ADMIN"] },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Online course information",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "fullDescription": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "instructor": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "price": { "type": "number" },
+        "discount": { "type": "number" },
+        "level": { "type": "string" },
+        "language": { "type": "string" },
+        "duration": { "type": "string" },
+        "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED", "ARCHIVED"] },
+        "featured": { "type": "boolean" },
+        "certificateEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "slug", "status"]
+    },
+    "Module": {
+      "title": "Module",
+      "description": "Course module containing lessons",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "orderIndex": { "type": "number" }
+      },
+      "required": ["courseId", "title", "orderIndex"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Individual lesson within a module",
+      "type": "object",
+      "properties": {
+        "moduleId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "videoSource": { "type": "string" },
+        "duration": { "type": "string" },
+        "orderIndex": { "type": "number" },
+        "freePreview": { "type": "boolean" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["moduleId", "courseId", "title", "orderIndex"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Course category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Enrollment": {
+      "title": "Enrollment",
+      "description": "User enrollment in a course",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "enrolledAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId"]
+    },
+    "Progress": {
+      "title": "Progress",
+      "description": "User lesson completion progress",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "lessonId", "completed"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Course purchase order",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "paymentProvider": { "type": "string" },
+        "paymentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["CREATED", "PAID", "FAILED"] },
+        "coupon": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "amount", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Course review and rating",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "courseId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "rating", "comment"]
+    },
+    "SiteSetting": {
+      "title": "SiteSetting",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": { "schema": "User", "description": "User profiles" },
+    "courses/{courseId}": { "schema": "Course", "description": "Course catalog" },
+    "courses/{courseId}/modules/{moduleId}": { "schema": "Module", "description": "Course modules" },
+    "courses/{courseId}/modules/{moduleId}/lessons/{lessonId}": { "schema": "Lesson", "description": "Course lessons" },
+    "categories/{categoryId}": { "schema": "Category", "description": "Course categories" },
+    "enrollments/{enrollmentId}": { "schema": "Enrollment", "description": "Course enrollments" },
+    "users/{userId}/progress/{lessonId}": { "schema": "Progress", "description": "Lesson progress" },
+    "orders/{orderId}": { "schema": "Order", "description": "Purchase orders" },
+    "reviews/{reviewId}": { "schema": "Review", "description": "Course reviews" },
+    "siteSettings/{settingId}": { "schema": "SiteSetting", "description": "Site configurations" }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "GENIUS SKILLS",
+  "description": "GENIUS SKILLS - Learn Skills. Build Your Future. Premium online learning and course platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,44 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'ADMIN' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Public course thumbnails & branding images
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Course media & lesson assets
+    match /courses/{courseId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // User avatar and profiles
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Default: block unrestricted writes
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
