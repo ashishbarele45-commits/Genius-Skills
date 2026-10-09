@@ -142,18 +142,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </h1>
             <span
               className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                user?.role === 'ADMIN' ||
-                user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
-                (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com'
+                user?.role === 'ADMIN'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   : 'bg-white/10 text-slate-300 border border-white/15'
               }`}
             >
-              {user?.role === 'ADMIN' ||
-              user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
-              (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com'
-                ? 'Administrator'
-                : 'Student'}
+              {user?.role === 'ADMIN' ? 'Administrator' : 'Student'}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -162,7 +156,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          {(user?.role === 'ADMIN' || user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+          {user?.role === 'ADMIN' && (
             <GlassButton
               variant="primary"
               size="sm"

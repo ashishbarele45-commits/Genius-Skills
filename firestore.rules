@@ -18,8 +18,9 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() &&
         (
-          (request.auth.uid == 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' && (request.auth.token.admin == true || request.auth.token.email == 'ashishbarele45@gmail.com')) ||
-          request.auth.token.admin == true
+          request.auth.token.admin == true ||
+          request.auth.token.email == 'admin.geniusskills@gmail.com' ||
+          request.auth.token.email == 'ashishbarele45@gmail.com'
         );
     }
 
@@ -29,8 +30,7 @@ service cloud.firestore {
 
     // Entity validations
     function isValidUser(data) {
-      return data.keys().hasAll(['name', 'email', 'role']) &&
-             data.name is string && data.name.size() > 0 &&
+      return data.keys().hasAll(['email', 'role']) &&
              data.email is string && data.email.size() > 0 &&
              data.role in ['STUDENT', 'ADMIN'];
     }

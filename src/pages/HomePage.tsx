@@ -14,6 +14,11 @@ import {
   Video,
   Layers,
   Phone,
+  ShoppingCart,
+  BookOpen,
+  CheckCircle2,
+  Award,
+  Play,
 } from 'lucide-react';
 
 interface HomePageProps {
@@ -143,8 +148,12 @@ export const HomePage: React.FC<HomePageProps> = ({ navigate }) => {
               </button>
 
               <button
-                onClick={() => navigate('/about')}
-                className="btn-secondary h-12 sm:h-13 px-7 sm:px-9 text-xs sm:text-sm font-semibold flex items-center gap-2.5"
+                onClick={() => {
+                  const el = document.getElementById('how-it-works');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  else navigate('/about');
+                }}
+                className="btn-secondary h-12 sm:h-13 px-7 sm:px-9 text-xs sm:text-sm font-semibold flex items-center gap-2.5 cursor-pointer"
               >
                 <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
                   <div className="w-0 h-0 border-t-[3.5px] border-t-transparent border-l-[6px] border-l-white border-b-[3.5px] border-b-transparent ml-0.5" />
@@ -255,6 +264,124 @@ export const HomePage: React.FC<HomePageProps> = ({ navigate }) => {
             </p>
           </div>
         )}
+      </section>
+      
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-12 max-w-7xl mx-auto w-full">
+        <div className="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 block">
+            Step-by-Step Learning
+          </span>
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+            How Genius Skills Works
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed font-medium">
+            From seamless enrollment to authenticated certificate verification, your complete digital learning path is structured for real-world mastery.
+          </p>
+        </div>
+
+        {/* 4 Interactive Process Stages */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="ios-glass-card p-6 sm:p-7 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-white/[0.06] border border-white/12 flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-500">01</span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-2 tracking-tight">Course Selection & Purchase</h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                Browse practical curricula and complete fast, secure checkout powered by verified Razorpay integration.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/8 text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Instant Enrollment</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="ios-glass-card p-6 sm:p-7 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-white/[0.06] border border-white/12 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-500">02</span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-2 tracking-tight">Instant Lesson Access</h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                Access structured video lessons, modular step-by-step guides, code samples and actionable exercises in your dashboard.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/8 text-[11px] text-white/80 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Self-Paced Learning</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="ios-glass-card p-6 sm:p-7 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-white/[0.06] border border-white/12 flex items-center justify-center">
+                  <Play className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-500">03</span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-2 tracking-tight">Project Completion</h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                Build real web applications, master AI-powered workflows, and generate ad-free video assets hands-on.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/8 text-[11px] text-white/80 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>100% Practical Skills</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="ios-glass-card p-6 sm:p-7 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-white/[0.06] border border-white/12 flex items-center justify-center">
+                  <Award className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-500">04</span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-2 tracking-tight">Certificate Claiming</h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                Upon completing lessons, instantly claim your verifiable digital certificate with unique QR verification code.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/8 text-[11px] text-amber-400 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Verifiable Credential</span>
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       {/* Support Section */}

@@ -22,44 +22,79 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const AUTHORIZED_ADMIN_UID = 'Bj7qBJUBTvY97fQFAn1wpZEATUq2';
-  const AUTHORIZED_ADMIN_EMAIL = 'ashishbarele45@gmail.com';
+  const AUTHORIZED_ADMIN_EMAILS = [
+    'admin.geniusskills@gmail.com',
+    'ashishbarele45@gmail.com',
+  ];
+
+  const formatAdminAuthError = (err: any): string => {
+    const code = err?.code || '';
+
+    if (code === 'auth/user-not-found') {
+      return `Administrator account not found in Firebase Authentication (project genius-course). Please create the user in Firebase Console under Authentication > Users with email admin.geniusskills@gmail.com.`;
+    }
+    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      return 'Invalid email or password. Please verify your administrator credentials.';
+    }
+    if (code === 'auth/operation-not-allowed') {
+      return 'Email/Password sign-in provider is disabled in Firebase Console for project genius-course. Please enable Email/Password in Firebase Authentication > Sign-in method.';
+    }
+    if (code === 'auth/invalid-api-key') {
+      return 'Firebase API key is invalid or restricted for project genius-course.';
+    }
+    if (code === 'auth/network-request-failed') {
+      return 'Network connection error. Please verify your internet connection.';
+    }
+    if (code === 'auth/popup-closed-by-user') {
+      return 'Sign-in window was closed before completing.';
+    }
+    return formatFirebaseAuthError(err);
+  };
 
   const completeAdminAuth = async (fbUser: any) => {
-    // Verify account matches authorized administrator
-    const isAuthorized =
-      fbUser.uid === AUTHORIZED_ADMIN_UID ||
-      (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
+    const userEmail = (fbUser.email || '').toLowerCase();
 
-    if (!isAuthorized) {
+    // 1. Inspect administrator custom claim
+    let tokenResult = await fbUser.getIdTokenResult();
+    let hasAdminClaim = Boolean(
+      tokenResult.claims?.admin === true ||
+      tokenResult.claims?.role === 'ADMIN'
+    );
+
+    const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
+
+    // 2. Verify account is an authorized administrator
+    if (!isAllowedEmail && !hasAdminClaim) {
       await signOut(auth);
       localStorage.removeItem('genius_token');
-      setError('403 Forbidden: Account is not authorized for administrator access.');
+      setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
       return;
     }
 
-    // Ensure custom claim is synced by trusted backend
-    try {
-      const idToken = await fbUser.getIdToken();
-      await fetch('/api/auth/sync-admin-claim', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
-    } catch (syncErr) {
-      console.warn('[AdminLogin] sync-admin-claim network notice:', syncErr);
+    // 3. If claim is missing, attempt trusted backend sync
+    if (!hasAdminClaim && isAllowedEmail) {
+      try {
+        const idToken = await fbUser.getIdToken();
+        const syncRes = await fetch('/api/auth/sync-admin-claim', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        });
+        if (syncRes.ok) {
+          tokenResult = await fbUser.getIdTokenResult(true);
+          hasAdminClaim = Boolean(
+            tokenResult.claims?.admin === true ||
+            tokenResult.claims?.role === 'ADMIN'
+          );
+        }
+      } catch (syncErr) {
+        console.warn('[AdminLogin] sync-admin-claim network notice:', syncErr);
+      }
     }
 
-    // Force refresh ID token
-    try {
-      await fbUser.getIdTokenResult(true);
-    } catch {
-      // Continue
-    }
-
-    // Store fresh ID token & navigate to /admin
+    // 4. Store fresh ID token & navigate to /admin
     const refreshedToken = await fbUser.getIdToken();
     localStorage.setItem('genius_token', refreshedToken);
 
@@ -76,7 +111,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
       await completeAdminAuth(userCred.user);
     } catch (err: any) {
       console.error('Admin login error:', err);
-      setError(formatFirebaseAuthError(err));
+      setError(formatAdminAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +126,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
       await completeAdminAuth(userCred.user);
     } catch (err: any) {
       console.error('Admin Google login error:', err);
-      setError(formatFirebaseAuthError(err));
+      setError(formatAdminAuthError(err));
     } finally {
       setIsGoogleLoading(false);
     }

@@ -648,7 +648,7 @@ router.get('/students', async (req, res) => {
   try {
     const result = await db.execute(`
       SELECT 
-        u.id, u.name, u.email, u.role, u.created_at,
+        u.id, u.name, u.email, u.role, u.status, u.suspension_reason, u.moderated_at, u.created_at,
         (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id) as enrollments_count,
         (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id AND o.status = 'PAID') as paid_orders_count,
         (SELECT COUNT(*) FROM certificates c WHERE c.user_id = u.id) as certificates_count
@@ -660,6 +660,62 @@ router.get('/students', async (req, res) => {
     return res.json({ students: result.rows });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to retrieve students.' });
+  }
+});
+
+// Ethical account suspension, banning and restoration with mandatory reason and audit record
+router.post('/students/:id/status', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    if (!['ACTIVE', 'SUSPENDED', 'BANNED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be ACTIVE, SUSPENDED, or BANNED.' });
+    }
+
+    if ((status === 'SUSPENDED' || status === 'BANNED') && (!reason || String(reason).trim().length < 5)) {
+      return res.status(400).json({ error: 'A mandatory reason (at least 5 characters) is required for account suspension or ban.' });
+    }
+
+    const cleanReason = (status === 'ACTIVE') ? null : String(reason).trim();
+    const now = new Date().toISOString();
+    const adminEmail = req.user?.email || 'admin';
+
+    await db.execute({
+      sql: `UPDATE users SET status = ?, suspension_reason = ?, moderated_at = ?, moderated_by = ?, updated_at = ? WHERE id = ? AND role = 'STUDENT'`,
+      args: [status, cleanReason, now, adminEmail, now, id],
+    });
+
+    const auditId = 'audit_' + Math.random().toString(36).substring(2, 12);
+    try {
+      await db.execute({
+        sql: `INSERT INTO audit_logs (id, action, target_user_id, performed_by, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [auditId, `ACCOUNT_${status}`, id, adminEmail, cleanReason || 'Restored account to active', now],
+      });
+    } catch (auditErr) {
+      console.warn('[AuditLog] Insert error:', auditErr);
+    }
+
+    return res.json({
+      success: true,
+      message: `Student account marked as ${status}.`,
+      studentId: id,
+      status,
+      reason: cleanReason,
+    });
+  } catch (error) {
+    console.error('Error moderating student account:', error);
+    return res.status(500).json({ error: 'Failed to update student account status.' });
+  }
+});
+
+// View moderation audit logs
+router.get('/audit-logs', async (_req, res) => {
+  try {
+    const result = await db.execute(`SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 50`);
+    return res.json({ auditLogs: result.rows });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to retrieve audit logs.' });
   }
 });
 

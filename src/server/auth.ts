@@ -28,19 +28,21 @@ export function generateToken(payload: { id: string; email: string; role: string
 }
 
 export async function verifyTokenOrFirebase(token: string): Promise<AuthUser | null> {
+  const AUTHORIZED_ADMIN_EMAILS = ['admin.geniusskills@gmail.com', 'ashishbarele45@gmail.com'];
+
   // First attempt Firebase Admin ID Token verification
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     if (decoded && decoded.uid) {
       const email = (decoded.email || '').toLowerCase();
       const isAdmin =
-        (decoded.uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' && email === 'ashishbarele45@gmail.com') ||
         decoded.admin === true ||
-        decoded.role === 'ADMIN';
+        decoded.role === 'ADMIN' ||
+        AUTHORIZED_ADMIN_EMAILS.includes(email);
 
       return {
         id: decoded.uid,
-        name: decoded.name || (isAdmin ? 'Ashish Barele' : (email.split('@')[0] || 'User')),
+        name: decoded.name || (isAdmin ? 'Platform Administrator' : (email.split('@')[0] || 'User')),
         email,
         role: isAdmin ? 'ADMIN' : 'STUDENT',
       };
@@ -58,13 +60,13 @@ export async function verifyTokenOrFirebase(token: string): Promise<AuthUser | n
           const uid = payload.user_id || payload.sub;
           const email = (payload.email || '').toLowerCase();
           const isAdmin =
-            (uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' && email === 'ashishbarele45@gmail.com') ||
             payload.admin === true ||
-            payload.role === 'ADMIN';
+            payload.role === 'ADMIN' ||
+            AUTHORIZED_ADMIN_EMAILS.includes(email);
 
           return {
             id: uid,
-            name: payload.name || (isAdmin ? 'Ashish Barele' : (email.split('@')[0] || 'User')),
+            name: payload.name || (isAdmin ? 'Platform Administrator' : (email.split('@')[0] || 'User')),
             email,
             role: isAdmin ? 'ADMIN' : 'STUDENT',
           };
@@ -127,6 +129,25 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   const authUser = await verifyTokenOrFirebase(token);
   if (!authUser) {
     return res.status(401).json({ error: 'Session expired or invalid. Please sign in again.' });
+  }
+
+  // Check if account has been suspended or banned by administration
+  try {
+    const userRow = await db.execute({
+      sql: `SELECT status, suspension_reason FROM users WHERE id = ? LIMIT 1`,
+      args: [authUser.id],
+    });
+    if (userRow.rows.length > 0) {
+      const status = String(userRow.rows[0].status || 'ACTIVE');
+      if (status === 'SUSPENDED' || status === 'BANNED') {
+        const reason = userRow.rows[0].suspension_reason ? String(userRow.rows[0].suspension_reason) : 'Violation of community policies.';
+        return res.status(403).json({
+          error: `Account ${status.toLowerCase()}: ${reason}. Contact support at 7796021948 for assistance.`,
+        });
+      }
+    }
+  } catch {
+    // Non-blocking if table not migrated yet
   }
 
   req.user = authUser;

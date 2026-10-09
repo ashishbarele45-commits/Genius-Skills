@@ -6,7 +6,7 @@ import { adminAuth } from '../firebaseAdmin';
 
 const router = Router();
 
-// Sync admin custom claim admin: true for ONLY the authorized admin UID
+// Sync admin custom claim admin: true for ONLY the authorized admin account
 router.post('/sync-admin-claim', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -15,8 +15,10 @@ router.post('/sync-admin-claim', async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const AUTHORIZED_ADMIN_UID = 'Bj7qBJUBTvY97fQFAn1wpZEATUq2';
-    const AUTHORIZED_ADMIN_EMAIL = 'ashishbarele45@gmail.com';
+    const AUTHORIZED_ADMIN_EMAILS = [
+      'admin.geniusskills@gmail.com',
+      'ashishbarele45@gmail.com',
+    ];
 
     let uid = '';
     let email = '';
@@ -40,17 +42,26 @@ router.post('/sync-admin-claim', async (req, res) => {
       }
     }
 
-    // Strictly check the EXACT Firebase UID and Email
-    if (uid === AUTHORIZED_ADMIN_UID || email === AUTHORIZED_ADMIN_EMAIL) {
+    // Strictly check the authorized admin email
+    if (AUTHORIZED_ADMIN_EMAILS.includes(email) && uid) {
+      let claimsProvisioned = false;
       try {
-        await adminAuth.setCustomUserClaims(AUTHORIZED_ADMIN_UID, {
+        await adminAuth.setCustomUserClaims(uid, {
           admin: true,
           role: 'ADMIN',
         });
+        claimsProvisioned = true;
       } catch (err: any) {
         console.warn('[sync-admin-claim] Set claims notice:', err.message);
       }
-      return res.json({ success: true, message: 'Admin verified and custom claim requested.', role: 'ADMIN' });
+      return res.json({
+        success: true,
+        message: 'Admin account verified.',
+        claimsProvisioned,
+        uid,
+        email,
+        role: 'ADMIN',
+      });
     }
 
     return res.status(403).json({ error: '403 Forbidden: Account is not authorized for administrator access.' });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   User as FirebaseUser,
   onAuthStateChanged,
@@ -11,7 +11,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth, googleProvider, formatFirebaseAuthError, trackEvent } from '../lib/firebase';
-import { getUserProfile, createUserProfile, updateUserProfile, FirestoreUserProfile } from '../services/firebaseService';
+import { getUserProfile, createUserProfile, updateUserProfile, isPlatformAdminEmail, FirestoreUserProfile } from '../services/firebaseService';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -29,8 +29,16 @@ interface AuthContextType {
   updateProfileName: (name: string) => Promise<void>;
 }
 
-const AUTHORIZED_ADMIN_UID = 'Bj7qBJUBTvY97fQFAn1wpZEATUq2';
-const AUTHORIZED_ADMIN_EMAIL = 'ashishbarele45@gmail.com';
+const AUTHORIZED_ADMIN_EMAILS = [
+  'admin.geniusskills@gmail.com',
+  'ashishbarele45@gmail.com',
+];
+
+export const isAuthorizedAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return AUTHORIZED_ADMIN_EMAILS.includes(clean);
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -39,73 +47,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<FirestoreUserProfile | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pendingRegistrationNameRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Real Firebase onAuthStateChanged listener on central canonical auth instance
+    // Single centralized onAuthStateChanged listener
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setIsLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
         let userProf: FirestoreUserProfile | null = null;
         let isAdmin = false;
 
-        try {
-          userProf = await getUserProfile(fbUser.uid);
-          if (!userProf) {
-            userProf = await createUserProfile(fbUser.uid, {
-              displayName: fbUser.displayName || 'Student',
-              email: fbUser.email || '',
-              emailVerified: fbUser.emailVerified,
-              photoURL: fbUser.photoURL || null,
-            });
-          }
-        } catch (err) {
-          console.warn('[Auth] Error fetching or creating Firestore user profile:', err);
-        }
+        const emailLower = (fbUser.email || '').toLowerCase();
+        const isKnownAdmin = isAuthorizedAdminEmail(emailLower);
 
         try {
-          let idToken = await fbUser.getIdToken();
-          let tokenResult = await fbUser.getIdTokenResult();
-          
-          // Secure admin check: authorized Firebase UID / Email and custom claims
-          const isExactAdminAccount =
-            fbUser.uid === AUTHORIZED_ADMIN_UID ||
-            (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
-
+          const tokenResult = await fbUser.getIdTokenResult();
           const hasAdminClaim = Boolean(
             tokenResult.claims?.admin === true ||
             tokenResult.claims?.role === 'ADMIN'
           );
 
-          isAdmin = isExactAdminAccount || hasAdminClaim;
+          // Admin is authorized if token has custom claim OR matches verified admin emails
+          isAdmin = hasAdminClaim || isKnownAdmin;
 
-          // If exact authorized admin account, request trusted backend sync
-          if (isExactAdminAccount) {
-            try {
-              const syncRes = await fetch('/api/auth/sync-admin-claim', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${idToken}`,
-                  'Content-Type': 'application/json',
-                },
-              });
-              if (syncRes.ok) {
-                tokenResult = await fbUser.getIdTokenResult(true);
-                idToken = await fbUser.getIdToken();
-              }
-            } catch (syncErr) {
-              console.warn('[Auth] Error syncing admin custom claim:', syncErr);
-            }
-          }
-
+          const idToken = await fbUser.getIdToken();
           localStorage.setItem('genius_token', idToken);
-        } catch (err) {
-          console.warn('[Auth] Error obtaining token:', err);
+
+          // If admin email logged in, request background custom claim sync if not yet active
+          if (isKnownAdmin && !hasAdminClaim) {
+            fetch('/api/auth/sync-admin-claim', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json',
+              },
+            })
+              .then(async (res) => {
+                if (res.ok) {
+                  await fbUser.getIdTokenResult(true);
+                }
+              })
+              .catch((err) => console.warn('[Auth] sync-admin-claim background notice:', err));
+          }
+        } catch (tokenErr) {
+          console.warn('[Auth] Token inspection notice:', tokenErr);
+          if (isKnownAdmin) isAdmin = true;
         }
 
-        const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
-          ? userProf.displayName
-          : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+        // Fast profile fetch with fallback
+        try {
+          userProf = await getUserProfile(fbUser.uid);
+          if (!userProf) {
+            const fallbackName = pendingRegistrationNameRef.current || fbUser.displayName || (isAdmin ? 'Administrator' : 'Student');
+            userProf = await createUserProfile(fbUser.uid, {
+              displayName: fallbackName,
+              email: fbUser.email || '',
+              role: isAdmin ? 'ADMIN' : 'STUDENT',
+              photoURL: fbUser.photoURL || null,
+              emailVerified: fbUser.emailVerified,
+            });
+          }
+        } catch (err) {
+          console.warn('[Auth] Profile sync notice:', err);
+        }
+
+        if (userProf?.role === 'ADMIN') {
+          isAdmin = true;
+        }
+
+        const resolvedName = pendingRegistrationNameRef.current
+          || (userProf?.displayName && userProf.displayName !== 'Student' ? userProf.displayName : null)
+          || (isAdmin ? (fbUser.displayName || 'Administrator') : (fbUser.displayName || 'Student'));
 
         const mappedUser: User = {
           id: fbUser.uid,
@@ -132,71 +144,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
       const fbUser = userCred.user;
+      const emailLower = (fbUser.email || '').toLowerCase();
+      let isAdmin = isAuthorizedAdminEmail(emailLower);
 
-      let userProf: FirestoreUserProfile | null = null;
       try {
-        userProf = await getUserProfile(fbUser.uid);
-        if (!userProf) {
-          userProf = await createUserProfile(fbUser.uid, {
-            displayName: fbUser.displayName || 'Student',
-            email: fbUser.email || '',
-          });
+        const tokenResult = await fbUser.getIdTokenResult();
+        if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'ADMIN') {
+          isAdmin = true;
         }
-      } catch (err) {
-        console.warn('[Auth] Profile fetch fallback in login:', err);
-      }
-
-      let isAdmin = false;
-      try {
-        let idToken = await fbUser.getIdToken();
-        let tokenResult = await fbUser.getIdTokenResult();
-        
-        const isExactAdminAccount =
-          fbUser.uid === AUTHORIZED_ADMIN_UID ||
-          (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
-
-        const hasAdminClaim = Boolean(
-          tokenResult.claims?.admin === true ||
-          tokenResult.claims?.role === 'ADMIN'
-        );
-
-        isAdmin = isExactAdminAccount || hasAdminClaim;
-
-        if (isExactAdminAccount) {
-          try {
-            const syncRes = await fetch('/api/auth/sync-admin-claim', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${idToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            if (syncRes.ok) {
-              tokenResult = await fbUser.getIdTokenResult(true);
-              idToken = await fbUser.getIdToken();
-            }
-          } catch (syncErr) {
-            console.warn('[Auth] Error syncing admin custom claim during login:', syncErr);
-          }
-        }
-
+        const idToken = await fbUser.getIdToken();
         localStorage.setItem('genius_token', idToken);
-      } catch (err) {
-        console.warn('[Auth] Token error in login:', err);
-      }
 
-      const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
-        ? userProf.displayName
-        : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+        if (isAdmin && !(tokenResult.claims?.admin === true)) {
+          fetch('/api/auth/sync-admin-claim', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json',
+            },
+          }).catch(() => {});
+        }
+      } catch {}
 
       const mappedUser: User = {
         id: fbUser.uid,
-        name: resolvedName,
+        name: fbUser.displayName || (isAdmin ? 'Administrator' : 'Student'),
         email: fbUser.email || '',
         role: isAdmin ? 'ADMIN' : 'STUDENT',
       };
 
-      setProfile(userProf);
       setUser(mappedUser);
       trackEvent('login', { method: 'password' });
       return mappedUser;
@@ -209,73 +185,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCred = await signInWithPopup(auth, googleProvider);
       const fbUser = userCred.user;
+      const emailLower = (fbUser.email || '').toLowerCase();
+      let isAdmin = isAuthorizedAdminEmail(emailLower);
 
-      let userProf: FirestoreUserProfile | null = null;
       try {
-        userProf = await getUserProfile(fbUser.uid);
-        if (!userProf) {
-          userProf = await createUserProfile(fbUser.uid, {
-            displayName: fbUser.displayName || 'Student',
-            email: fbUser.email || '',
-            photoURL: fbUser.photoURL || null,
-            emailVerified: fbUser.emailVerified,
-          });
+        const tokenResult = await fbUser.getIdTokenResult();
+        if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'ADMIN') {
+          isAdmin = true;
         }
-      } catch (err) {
-        console.warn('[Auth] Google Profile fetch fallback:', err);
-      }
-
-      let isAdmin = false;
-      try {
-        let idToken = await fbUser.getIdToken();
-        let tokenResult = await fbUser.getIdTokenResult();
-        
-        const isExactAdminAccount =
-          fbUser.uid === AUTHORIZED_ADMIN_UID ||
-          (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
-
-        const hasAdminClaim = Boolean(
-          tokenResult.claims?.admin === true ||
-          tokenResult.claims?.role === 'ADMIN'
-        );
-
-        isAdmin = isExactAdminAccount || hasAdminClaim;
-
-        if (isExactAdminAccount) {
-          try {
-            const syncRes = await fetch('/api/auth/sync-admin-claim', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${idToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            if (syncRes.ok) {
-              tokenResult = await fbUser.getIdTokenResult(true);
-              idToken = await fbUser.getIdToken();
-            }
-          } catch (syncErr) {
-            console.warn('[Auth] Error syncing admin custom claim during Google login:', syncErr);
-          }
-        }
-
+        const idToken = await fbUser.getIdToken();
         localStorage.setItem('genius_token', idToken);
-      } catch (err) {
-        console.warn('[Auth] Token error in Google login:', err);
-      }
 
-      const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
-        ? userProf.displayName
-        : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+        if (isAdmin && !(tokenResult.claims?.admin === true)) {
+          fetch('/api/auth/sync-admin-claim', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json',
+            },
+          }).catch(() => {});
+        }
+      } catch {}
+
+      // Fast non-blocking profile creation for Google user
+      createUserProfile(fbUser.uid, {
+        displayName: fbUser.displayName || (isAdmin ? 'Administrator' : 'Student'),
+        email: fbUser.email || '',
+        photoURL: fbUser.photoURL || null,
+        emailVerified: fbUser.emailVerified,
+        role: isAdmin ? 'ADMIN' : 'STUDENT',
+      }).catch((err) => console.warn('[Auth] Google profile background notice:', err));
 
       const mappedUser: User = {
         id: fbUser.uid,
-        name: resolvedName,
+        name: fbUser.displayName || (isAdmin ? 'Administrator' : 'Student'),
         email: fbUser.email || '',
         role: isAdmin ? 'ADMIN' : 'STUDENT',
       };
 
-      setProfile(userProf);
       setUser(mappedUser);
       trackEvent('login', { method: 'google' });
       return mappedUser;
@@ -286,50 +233,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (name: string, email: string, password: string): Promise<User> => {
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const cleanName = name.trim();
+      const cleanEmail = email.trim();
+      pendingRegistrationNameRef.current = cleanName;
+
+      // 1. Create authentication user in Firebase
+      const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const fbUser = userCred.user;
 
-      try {
-        await updateProfile(fbUser, { displayName: name.trim() });
-      } catch (err) {
-        console.warn('[Auth] Failed to update display name on user:', err);
-      }
+      // 2. Set Firebase Auth display name and cache token in parallel
+      const updatePromise = updateProfile(fbUser, { displayName: cleanName }).catch((err) =>
+        console.warn('[Auth] Update profile notice:', err)
+      );
 
-      let userProf: FirestoreUserProfile | null = null;
-      try {
-        userProf = await createUserProfile(fbUser.uid, {
-          displayName: name.trim(),
-          email: fbUser.email || '',
-          role: 'STUDENT',
-          emailVerified: fbUser.emailVerified,
-        });
-      } catch (err) {
-        console.warn('[Auth] Profile creation in Firestore fallback:', err);
-      }
+      const tokenPromise = fbUser.getIdToken().then((idToken) => {
+        localStorage.setItem('genius_token', idToken);
+      }).catch(() => {});
+
+      // 3. Create Firestore profile
+      const firestorePromise = createUserProfile(fbUser.uid, {
+        displayName: cleanName,
+        email: fbUser.email || cleanEmail,
+        role: 'STUDENT',
+        emailVerified: fbUser.emailVerified,
+      }).catch((err) => {
+        console.warn('[Auth] Firestore profile creation notice:', err);
+      });
+
+      // 4. Non-blocking verification email
+      sendEmailVerification(fbUser).catch(() => {});
+
+      await Promise.all([updatePromise, tokenPromise, firestorePromise]);
+      pendingRegistrationNameRef.current = null;
 
       const mappedUser: User = {
         id: fbUser.uid,
-        name: name.trim(),
-        email: fbUser.email || '',
+        name: cleanName,
+        email: fbUser.email || cleanEmail,
         role: 'STUDENT',
       };
 
-      try {
-        const idToken = await fbUser.getIdToken();
-        localStorage.setItem('genius_token', idToken);
-      } catch {}
-
-      try {
-        await sendEmailVerification(fbUser);
-      } catch {
-        // Verification email is non-fatal
-      }
-
-      setProfile(userProf);
       setUser(mappedUser);
       trackEvent('sign_up', { method: 'password' });
       return mappedUser;
     } catch (error: any) {
+      pendingRegistrationNameRef.current = null;
       throw new Error(formatFirebaseAuthError(error));
     }
   };
@@ -378,7 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         firebaseUser,
         profile,
-        isAdmin: Boolean(user?.role === 'ADMIN' && user?.id === AUTHORIZED_ADMIN_UID),
+        isAdmin: Boolean(user?.role === 'ADMIN'),
         isLoading,
         login,
         loginWithGoogle,

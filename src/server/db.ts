@@ -19,8 +19,38 @@ export async function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'STUDENT',
+      status TEXT NOT NULL DEFAULT 'ACTIVE',
+      suspension_reason TEXT,
+      moderated_at TEXT,
+      moderated_by TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    )
+  `);
+
+  // Ensure status and moderation columns exist if table was previously created
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`);
+  } catch {}
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN suspension_reason TEXT`);
+  } catch {}
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN moderated_at TEXT`);
+  } catch {}
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN moderated_by TEXT`);
+  } catch {}
+
+  // Moderation Audit Logs table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      action TEXT NOT NULL,
+      target_user_id TEXT NOT NULL,
+      performed_by TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL
     )
   `);
 
@@ -256,7 +286,7 @@ export async function initDatabase() {
   });
 
   if (existingAdmin.rows.length === 0) {
-    const adminEmail = (process.env.ADMIN_EMAIL || 'ashishbarele45@gmail.com').toLowerCase();
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin.geniusskills@gmail.com').toLowerCase();
     // Admin authenticates primarily via Firebase Authentication with verified admin custom claims
     const initialPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(24).toString('hex');
     const hash = await bcrypt.hash(initialPassword, 10);

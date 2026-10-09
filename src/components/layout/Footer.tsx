@@ -12,8 +12,9 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
   const [clickCount, setClickCount] = useState(0);
   const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Hidden 6-click admin entry
-  const handleAdminSecretClick = () => {
+  // Hidden 6-click admin entry on "Genius Skills" text
+  const handleAdminSecretClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
     setClickCount((prev) => {
       const nextCount = prev + 1;
       if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
@@ -25,7 +26,7 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
 
       clickTimerRef.current = setTimeout(() => {
         setClickCount(0);
-      }, 3000);
+      }, 2500);
 
       return nextCount;
     });
@@ -86,12 +87,15 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
         </div>
 
         <div className="mt-20 pt-10 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 text-[11px] text-slate-500 font-medium">
-          <p
-            onClick={handleAdminSecretClick}
-            className="cursor-default select-none transition-colors hover:text-slate-400"
-            title="GENIUS SKILLS"
-          >
-            © {new Date().getFullYear()} {brandName} {tagline}. All rights reserved.
+          <p className="select-none">
+            <span
+              onClick={handleAdminSecretClick}
+              onTouchEnd={handleAdminSecretClick}
+              className="cursor-default"
+            >
+              Genius Skills
+            </span>
+            . All Rights Reserved.
           </p>
           <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/10">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { adminDb } from '../firebaseAdmin';
+import { db } from '../db';
 
 const router = Router();
 
-// GET all active categories from Firestore
+// GET all active categories with Firestore and database fallback
 router.get('/', async (req, res) => {
   try {
     const snap = await adminDb.collection('categories')
@@ -16,7 +17,6 @@ router.get('/', async (req, res) => {
     for (const doc of snap.docs) {
       const data = doc.data();
       
-      // Get course count for this category
       const coursesSnap = await adminDb.collection('courses')
         .where('categoryId', '==', doc.id)
         .where('status', '==', 'PUBLISHED')
@@ -33,9 +33,32 @@ router.get('/', async (req, res) => {
     }
 
     return res.json({ categories });
-  } catch (error) {
-    console.error('Fetch categories error:', error);
-    return res.status(500).json({ error: 'Failed to retrieve categories from Firestore.' });
+  } catch (_firestoreError) {
+    // Database fallback
+    try {
+      const result = await db.execute(`
+        SELECT 
+          c.*,
+          (SELECT COUNT(*) FROM courses crs WHERE crs.category_id = c.id AND crs.status = 'PUBLISHED') as courses_count
+        FROM categories c
+        WHERE c.active = 1
+        ORDER BY c.name ASC
+      `);
+
+      const categories = result.rows.map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        slug: String(r.slug),
+        description: r.description ? String(r.description) : undefined,
+        image: r.image ? String(r.image) : undefined,
+        coursesCount: Number(r.courses_count || 0),
+      }));
+
+      return res.json({ categories });
+    } catch (dbErr) {
+      console.error('Database categories fetch error:', dbErr);
+      return res.json({ categories: [] });
+    }
   }
 });
 

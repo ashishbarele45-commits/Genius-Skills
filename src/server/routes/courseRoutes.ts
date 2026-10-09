@@ -1,20 +1,21 @@
 import { Router } from 'express';
 import { adminDb } from '../firebaseAdmin';
+import { db } from '../db';
 import { optionalAuth, AuthenticatedRequest } from '../auth';
 
 const router = Router();
 
-// GET all published courses with search, filters, sort (Firestore implementation)
+// GET all published courses with search, filters, sort (Firestore with Database fallback)
 router.get('/', async (req, res) => {
-  try {
-    const {
-      search,
-      category,
-      level,
-      featured,
-      sort,
-    } = req.query;
+  const {
+    search,
+    category,
+    level,
+    featured,
+    sort,
+  } = req.query;
 
+  try {
     let q: any = adminDb.collection('courses');
     
     if (level && level !== 'all') {
@@ -29,13 +30,11 @@ router.get('/', async (req, res) => {
       q = q.where('categoryId', '==', String(category));
     }
 
-    // Default to newest first (createdAt desc)
     let snap = await q.get();
     
     let courses = await Promise.all(snap.docs.map(async (doc: any) => {
       const data = doc.data();
       
-      // Fetch category name if categoryId exists
       let categoryName = null;
       if (data.categoryId) {
         try {
@@ -48,17 +47,14 @@ router.get('/', async (req, res) => {
         }
       }
 
-      // Get modules count
       const modulesSnap = await adminDb.collection('courses').doc(doc.id).collection('modules').get();
       
-      // Calculate lessons count
       let lessonsCount = 0;
       for (const mDoc of modulesSnap.docs) {
         const lSnap = await adminDb.collection('courses').doc(doc.id).collection('modules').doc(mDoc.id).collection('lessons').get();
         lessonsCount += lSnap.size;
       }
 
-      // Get average rating (In real apps, these should be denormalized on the course doc)
       const reviewsSnap = await adminDb.collection('reviews')
         .where('courseId', '==', doc.id)
         .where('status', '==', 'APPROVED')
@@ -95,7 +91,6 @@ router.get('/', async (req, res) => {
       };
     }));
 
-    // Post-query search filter (Firestore doesn't support full-text search directly)
     if (search) {
       const term = String(search).toLowerCase();
       courses = courses.filter(c => 
@@ -105,7 +100,6 @@ router.get('/', async (req, res) => {
       );
     }
 
-    // Post-query sorting
     if (sort === 'price_asc') {
       courses.sort((a, b) => a.finalPrice - b.finalPrice);
     } else if (sort === 'price_desc') {
@@ -115,22 +109,80 @@ router.get('/', async (req, res) => {
     }
 
     return res.json({ courses });
-  } catch (error: any) {
-    console.error('Fetch courses error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack,
-      details: error.details
-    });
-    return res.status(500).json({ error: `Failed to retrieve courses from Firestore: ${error.message}` });
+  } catch (_firestoreError) {
+    // Graceful fallback to persistent SQLite database
+    try {
+      let sql = `
+        SELECT 
+          c.*, 
+          cat.name as category_name,
+          (SELECT COUNT(*) FROM modules m WHERE m.course_id = c.id) as modules_count,
+          (SELECT COUNT(*) FROM lessons l JOIN modules m ON l.module_id = m.id WHERE m.course_id = c.id) as lessons_count,
+          (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) as students_count
+        FROM courses c
+        LEFT JOIN categories cat ON c.category_id = cat.id
+        WHERE c.status = 'PUBLISHED'
+      `;
+      const args: any[] = [];
+
+      if (category) {
+        sql += ` AND c.category_id = ?`;
+        args.push(String(category));
+      }
+      if (level && level !== 'all') {
+        sql += ` AND c.level = ?`;
+        args.push(String(level));
+      }
+      if (featured === 'true' || featured === '1') {
+        sql += ` AND c.featured = 1`;
+      }
+      if (search) {
+        sql += ` AND (c.title LIKE ? OR c.short_description LIKE ?)`;
+        args.push(`%${search}%`, `%${search}%`);
+      }
+
+      sql += ` ORDER BY c.created_at DESC`;
+
+      const result = await db.execute({ sql, args });
+
+      const courses = result.rows.map((r) => ({
+        id: String(r.id),
+        title: String(r.title),
+        slug: String(r.slug),
+        shortDescription: String(r.short_description || ''),
+        fullDescription: String(r.full_description || ''),
+        categoryId: r.category_id ? String(r.category_id) : undefined,
+        categoryName: r.category_name ? String(r.category_name) : undefined,
+        instructor: String(r.instructor || 'Instructor'),
+        thumbnail: r.thumbnail ? String(r.thumbnail) : undefined,
+        price: Number(r.price || 0),
+        discount: Number(r.discount || 0),
+        finalPrice: Math.max(0, Number(r.price || 0) - Number(r.discount || 0)),
+        level: String(r.level || 'All Levels'),
+        language: String(r.language || 'English'),
+        duration: r.duration ? String(r.duration) : undefined,
+        status: String(r.status),
+        featured: Boolean(r.featured),
+        certificateEnabled: Boolean(r.certificate_enabled),
+        modulesCount: Number(r.modules_count || 0),
+        lessonsCount: Number(r.lessons_count || 0),
+        studentsCount: Number(r.students_count || 0),
+        createdAt: String(r.created_at),
+        updatedAt: String(r.updated_at),
+      }));
+
+      return res.json({ courses });
+    } catch (dbErr: any) {
+      console.error('Database course fetch fallback error:', dbErr);
+      return res.json({ courses: [] });
+    }
   }
 });
 
 // GET course by slug (Course details page implementation for Firestore)
 router.get('/:slug', optionalAuth, async (req: AuthenticatedRequest, res) => {
+  const { slug } = req.params;
   try {
-    const { slug } = req.params;
-
     const snap = await adminDb.collection('courses').where('slug', '==', slug).limit(1).get();
 
     if (snap.empty) {
@@ -230,9 +282,91 @@ router.get('/:slug', optionalAuth, async (req: AuthenticatedRequest, res) => {
         isEnrolled,
       },
     });
-  } catch (error) {
-    console.error('Course details error:', error);
-    return res.status(500).json({ error: 'Failed to load course details from Firestore.' });
+  } catch (_firestoreError) {
+    // Database fallback
+    try {
+      const courseRes = await db.execute({
+        sql: `SELECT c.*, cat.name as category_name FROM courses c LEFT JOIN categories cat ON c.category_id = cat.id WHERE c.slug = ? OR c.id = ? LIMIT 1`,
+        args: [slug, slug],
+      });
+
+      if (courseRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Course not found.' });
+      }
+
+      const r = courseRes.rows[0];
+      const courseId = String(r.id);
+
+      const modulesRes = await db.execute({
+        sql: `SELECT * FROM modules WHERE course_id = ? ORDER BY order_index ASC`,
+        args: [courseId],
+      });
+
+      const modules = await Promise.all(
+        modulesRes.rows.map(async (m) => {
+          const lessonsRes = await db.execute({
+            sql: `SELECT * FROM lessons WHERE module_id = ? AND published = 1 ORDER BY order_index ASC`,
+            args: [m.id],
+          });
+          return {
+            id: String(m.id),
+            title: String(m.title),
+            description: m.description ? String(m.description) : undefined,
+            orderIndex: Number(m.order_index) || 0,
+            lessons: lessonsRes.rows.map((l) => ({
+              id: String(l.id),
+              moduleId: String(m.id),
+              title: String(l.title),
+              description: l.description ? String(l.description) : undefined,
+              duration: l.duration ? String(l.duration) : undefined,
+              orderIndex: Number(l.order_index) || 0,
+              freePreview: Boolean(l.free_preview),
+            })),
+          };
+        })
+      );
+
+      let isEnrolled = false;
+      if (req.user) {
+        const enrollRes = await db.execute({
+          sql: `SELECT id FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1`,
+          args: [req.user.id, courseId],
+        });
+        isEnrolled = enrollRes.rows.length > 0;
+      }
+
+      return res.json({
+        course: {
+          id: courseId,
+          title: String(r.title),
+          slug: String(r.slug),
+          shortDescription: String(r.short_description || ''),
+          fullDescription: String(r.full_description || ''),
+          categoryId: r.category_id ? String(r.category_id) : undefined,
+          categoryName: r.category_name ? String(r.category_name) : undefined,
+          instructor: String(r.instructor || 'Instructor'),
+          thumbnail: r.thumbnail ? String(r.thumbnail) : undefined,
+          price: Number(r.price || 0),
+          discount: Number(r.discount || 0),
+          finalPrice: Math.max(0, Number(r.price || 0) - Number(r.discount || 0)),
+          level: String(r.level || 'All Levels'),
+          language: String(r.language || 'English'),
+          duration: r.duration ? String(r.duration) : undefined,
+          status: String(r.status),
+          featured: Boolean(r.featured),
+          certificateEnabled: Boolean(r.certificate_enabled),
+          averageRating: 5.0,
+          reviewCount: 0,
+          createdAt: String(r.created_at),
+          modules,
+          reviews: [],
+          isEnrolled,
+        },
+      });
+    } catch (dbErr: any) {
+      console.error('Course details db fallback error:', dbErr);
+      return res.status(500).json({ error: 'Failed to load course details.' });
+    }
   }
 });
 

@@ -205,6 +205,46 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
     action: async () => {},
   });
 
+  // Student ethical moderation state
+  const [selectedStudentForModeration, setSelectedStudentForModeration] = useState<any | null>(null);
+  const [moderationTargetStatus, setModerationTargetStatus] = useState<'SUSPENDED' | 'BANNED' | 'ACTIVE'>('SUSPENDED');
+  const [moderationReason, setModerationReason] = useState('');
+  const [isModerationModalOpen, setIsModerationModalOpen] = useState(false);
+  const [isSubmittingModeration, setIsSubmittingModeration] = useState(false);
+
+  const handleOpenModeration = (student: any, targetStatus: 'SUSPENDED' | 'BANNED' | 'ACTIVE') => {
+    setSelectedStudentForModeration(student);
+    setModerationTargetStatus(targetStatus);
+    setModerationReason('');
+    setIsModerationModalOpen(true);
+  };
+
+  const handleConfirmModeration = async () => {
+    if (!selectedStudentForModeration) return;
+    if (moderationTargetStatus !== 'ACTIVE' && moderationReason.trim().length < 5) {
+      showToast('A mandatory reason (at least 5 characters) is required for account suspension or ban.', 'error');
+      return;
+    }
+    setIsSubmittingModeration(true);
+    try {
+      await apiRequest(`/api/admin/students/${selectedStudentForModeration.id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status: moderationTargetStatus,
+          reason: moderationReason.trim(),
+        }),
+      });
+      showToast(`Account successfully updated to ${moderationTargetStatus}.`, 'success');
+      setIsModerationModalOpen(false);
+      const res = await apiRequest<{ students: any[] }>('/api/admin/students');
+      setStudents(res.students || []);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update student account status.', 'error');
+    } finally {
+      setIsSubmittingModeration(false);
+    }
+  };
+
   // Media upload and time filter states
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
@@ -969,7 +1009,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
           <div className="p-4 border-t border-white/8 flex flex-col gap-2 bg-[#08090b]">
             <div className="px-3 py-2 rounded-2xl bg-white/[0.02] border border-white/5 text-[11px] text-slate-400">
               <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider block">Administrator</span>
-              <span className="text-white font-medium truncate block">{user?.email || 'admin@genius-course'}</span>
+              <span className="text-white font-medium truncate block">Platform Administrator</span>
             </div>
             <button
               onClick={() => navigate('/')}
@@ -1577,22 +1617,75 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
       })()}
 
       {/* 6. STUDENTS */}
+      {/* 6. STUDENTS */}
       {activeTab === 'students' && (
-        <div>
+        <div className="flex flex-col gap-6">
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-slate-400">Total Registered Students: {students.length}</span>
+          </div>
+
           {students.length > 0 ? (
-            <GlassTable headers={['Student Name', 'Email', 'Enrolled Courses', 'Paid Orders', 'Certificates', 'Registered']}>
-              {students.map((s) => (
-                <tr key={s.id} className="hover:bg-white/[0.02]">
-                  <td className="py-3.5 px-5 text-xs font-semibold text-white">{s.name}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-300">{s.email}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-400">{s.enrollments_count || 0}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-400">{s.paid_orders_count || 0}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-400">{s.certificates_count || 0}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-400">
-                    {new Date(s.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
+            <GlassTable headers={['Student Name', 'Email', 'Account Status', 'Enrolled Courses', 'Paid Orders', 'Certificates', 'Registered', 'Moderation']}>
+              {students.map((s) => {
+                const status = s.status || 'ACTIVE';
+                return (
+                  <tr key={s.id} className="hover:bg-white/[0.02]">
+                    <td className="py-3.5 px-5 text-xs font-semibold text-white">{s.name}</td>
+                    <td className="py-3.5 px-5 text-xs text-slate-300">{s.email}</td>
+                    <td className="py-3.5 px-5 text-xs">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          status === 'ACTIVE'
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                            : status === 'SUSPENDED'
+                            ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                            : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                      {s.suspension_reason && (
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-xs truncate" title={s.suspension_reason}>
+                          Reason: {s.suspension_reason}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-5 text-xs text-slate-400">{s.enrollments_count || 0}</td>
+                    <td className="py-3.5 px-5 text-xs text-slate-400">{s.paid_orders_count || 0}</td>
+                    <td className="py-3.5 px-5 text-xs text-slate-400">{s.certificates_count || 0}</td>
+                    <td className="py-3.5 px-5 text-xs text-slate-400">
+                      {new Date(s.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="py-3.5 px-5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {status !== 'ACTIVE' ? (
+                          <button
+                            onClick={() => handleOpenModeration(s, 'ACTIVE')}
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 cursor-pointer"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleOpenModeration(s, 'SUSPENDED')}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 cursor-pointer"
+                            >
+                              Suspend
+                            </button>
+                            <button
+                              onClick={() => handleOpenModeration(s, 'BANNED')}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 cursor-pointer"
+                            >
+                              Ban
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </GlassTable>
           ) : (
             <div className="p-14 rounded-[32px] bg-white/[0.02] border border-white/10 text-center">
@@ -1603,6 +1696,49 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
               </p>
             </div>
           )}
+
+          {/* Student Account Moderation Modal */}
+          <GlassModal
+            isOpen={isModerationModalOpen}
+            onClose={() => setIsModerationModalOpen(false)}
+            title={`Ethical Moderation: ${moderationTargetStatus === 'ACTIVE' ? 'Restore Account' : moderationTargetStatus === 'SUSPENDED' ? 'Suspend Account' : 'Ban Account'}`}
+            description={
+              moderationTargetStatus === 'ACTIVE'
+                ? `Restore access for student ${selectedStudentForModeration?.name} (${selectedStudentForModeration?.email}).`
+                : `Specify mandatory audit reason for marking account ${selectedStudentForModeration?.name} (${selectedStudentForModeration?.email}) as ${moderationTargetStatus}.`
+            }
+          >
+            <div className="flex flex-col gap-4 mt-2">
+              {moderationTargetStatus !== 'ACTIVE' && (
+                <GlassTextarea
+                  label="Mandatory Reason for Action"
+                  placeholder="e.g. Terms violation, fraudulent chargeback inquiry, spam activity..."
+                  value={moderationReason}
+                  onChange={(e) => setModerationReason(e.target.value)}
+                  required
+                  rows={3}
+                />
+              )}
+
+              <div className="flex justify-end gap-3 pt-3">
+                <GlassButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsModerationModalOpen(false)}
+                >
+                  Cancel
+                </GlassButton>
+                <GlassButton
+                  variant={moderationTargetStatus === 'ACTIVE' ? 'primary' : 'danger'}
+                  size="sm"
+                  onClick={handleConfirmModeration}
+                  isLoading={isSubmittingModeration}
+                >
+                  Confirm {moderationTargetStatus}
+                </GlassButton>
+              </div>
+            </div>
+          </GlassModal>
         </div>
       )}
 

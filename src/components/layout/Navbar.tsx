@@ -123,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
 
             {user ? (
               <div className="flex items-center gap-2">
-                {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                {user.role === 'ADMIN' && (
                   <button
                     onClick={() => navigate('/admin')}
                     className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] cursor-pointer"
@@ -156,17 +156,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-xs font-bold text-white truncate">{user.name}</p>
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                (user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com')
+                                user.role === 'ADMIN'
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                   : 'bg-white/10 text-slate-300 border border-white/15'
                               }`}>
-                                {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') ? 'Admin' : 'Student'}
+                                {user.role === 'ADMIN' ? 'Admin' : 'Student'}
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-500 truncate mt-0.5">{user.email}</p>
                           </div>
 
-                          {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                          {user.role === 'ADMIN' && (
                             <button
                               onClick={() => { navigate('/admin'); setIsUserDropdownOpen(false); }}
                               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 transition-all text-left font-bold"
@@ -280,7 +280,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
               <div className="pt-3 flex flex-col gap-2">
                 {user ? (
                   <>
-                    {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                    {user.role === 'ADMIN' && (
                       <button
                         onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }}
                         className="w-full flex items-center justify-center gap-2 h-10 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold cursor-pointer"

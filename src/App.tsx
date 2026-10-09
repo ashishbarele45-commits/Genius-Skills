@@ -94,12 +94,7 @@ function AppContent() {
 
     // 4. Admin Panel: /admin or /admin/* (Strict 403 for non-admins)
     if (currentPath === '/admin' || currentPath.startsWith('/admin/')) {
-      const isAuthorizedAdmin = Boolean(
-        user &&
-        (user.role === 'ADMIN' ||
-         user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
-         (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com')
-      );
+      const isAuthorizedAdmin = Boolean(user && user.role === 'ADMIN');
       if (!isLoading && !isAuthorizedAdmin) {
         return (
           <div className="pt-36 pb-20 px-4 text-center max-w-md mx-auto min-h-screen relative z-10">

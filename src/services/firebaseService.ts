@@ -29,6 +29,12 @@ export interface FirestoreUserProfile {
   updatedAt: any;
 }
 
+export const isPlatformAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return clean === 'admin.geniusskills@gmail.com' || clean === 'ashishbarele45@gmail.com';
+};
+
 // ==================== USER PROFILE ====================
 
 export async function getUserProfile(uid: string): Promise<FirestoreUserProfile | null> {
@@ -36,11 +42,11 @@ export async function getUserProfile(uid: string): Promise<FirestoreUserProfile 
   const snap = await getDoc(userRef);
   if (!snap.exists()) return null;
   const profile = snap.data() as FirestoreUserProfile;
-  const isAuthorizedAdmin = uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || profile.email?.toLowerCase() === 'ashishbarele45@gmail.com';
+  const isAuthorizedAdmin = isPlatformAdminEmail(profile.email) || profile.role === 'ADMIN';
   if (isAuthorizedAdmin) {
     profile.role = 'ADMIN';
     if (!profile.displayName || profile.displayName === 'Student') {
-      profile.displayName = 'Ashish Barele';
+      profile.displayName = 'Administrator';
     }
   }
   return profile;
@@ -52,29 +58,31 @@ export async function createUserProfile(
 ): Promise<FirestoreUserProfile> {
   const userRef = doc(db, 'users', uid);
   const existing = await getDoc(userRef);
-  const isAuthorizedAdmin = uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || data.email.toLowerCase() === 'ashishbarele45@gmail.com';
+  const isAuthorizedAdmin = isPlatformAdminEmail(data.email) || data.role === 'ADMIN';
 
   if (existing.exists()) {
     const existingData = existing.data() as FirestoreUserProfile;
     if (isAuthorizedAdmin && (existingData.role !== 'ADMIN' || !existingData.displayName || existingData.displayName === 'Student')) {
       await updateDoc(userRef, {
         role: 'ADMIN',
-        displayName: existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Ashish Barele',
+        name: existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Administrator',
+        displayName: existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Administrator',
         updatedAt: serverTimestamp(),
       });
       existingData.role = 'ADMIN';
-      existingData.displayName = existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Ashish Barele';
+      existingData.displayName = existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Administrator';
     }
     return existingData;
   }
 
   const role: 'STUDENT' | 'ADMIN' = isAuthorizedAdmin ? 'ADMIN' : (data.role || 'STUDENT');
   const displayName = isAuthorizedAdmin
-    ? (data.displayName && data.displayName !== 'Student' ? data.displayName : 'Ashish Barele')
+    ? (data.displayName && data.displayName !== 'Student' ? data.displayName : 'Administrator')
     : (data.displayName || 'Student');
 
-  const profile: FirestoreUserProfile = {
+  const profile: any = {
     uid,
+    name: displayName,
     displayName,
     email: data.email.toLowerCase(),
     photoURL: data.photoURL || null,
@@ -86,7 +94,7 @@ export async function createUserProfile(
   };
 
   await setDoc(userRef, profile);
-  return profile;
+  return profile as FirestoreUserProfile;
 }
 
 export async function updateUserProfile(uid: string, updates: Partial<FirestoreUserProfile>) {
