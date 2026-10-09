@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, formatFirebaseAuthError } from '../../lib/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider, formatFirebaseAuthError } from '../../lib/firebase';
 import { getUserProfile } from '../../services/firebaseService';
 import { GlassCard } from '../../components/ui/glass/GlassCard';
 import { GlassButton } from '../../components/ui/glass/GlassButton';
@@ -19,7 +19,52 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const AUTHORIZED_ADMIN_UID = 'Bj7qBJUBTvY97fQFAn1wpZEATUq2';
+  const AUTHORIZED_ADMIN_EMAIL = 'ashishbarele45@gmail.com';
+
+  const completeAdminAuth = async (fbUser: any) => {
+    // Verify account matches authorized administrator
+    const isAuthorized =
+      fbUser.uid === AUTHORIZED_ADMIN_UID ||
+      (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
+
+    if (!isAuthorized) {
+      await signOut(auth);
+      localStorage.removeItem('genius_token');
+      setError('403 Forbidden: Account is not authorized for administrator access.');
+      return;
+    }
+
+    // Ensure custom claim is synced by trusted backend
+    try {
+      const idToken = await fbUser.getIdToken();
+      await fetch('/api/auth/sync-admin-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+      });
+    } catch (syncErr) {
+      console.warn('[AdminLogin] sync-admin-claim network notice:', syncErr);
+    }
+
+    // Force refresh ID token
+    try {
+      await fbUser.getIdTokenResult(true);
+    } catch {
+      // Continue
+    }
+
+    // Store fresh ID token & navigate to /admin
+    const refreshedToken = await fbUser.getIdToken();
+    localStorage.setItem('genius_token', refreshedToken);
+
+    navigate('/admin');
+  };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,56 +72,28 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
     setIsLoading(true);
 
     try {
-      // 1. Firebase login
       const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const fbUser = userCred.user;
-
-      const AUTHORIZED_ADMIN_UID = 'Bj7qBJUBTvY97fQFAn1wpZEATUq2';
-      const AUTHORIZED_ADMIN_EMAIL = 'ashishbarele45@gmail.com';
-
-      // 2. Verify account matches authorized administrator
-      const isAuthorized =
-        fbUser.uid === AUTHORIZED_ADMIN_UID ||
-        (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
-
-      if (!isAuthorized) {
-        await signOut(auth);
-        localStorage.removeItem('genius_token');
-        setError('403 Forbidden: Account is not authorized for administrator access.');
-        return;
-      }
-
-      // 3. Ensure custom claim is synced by trusted backend
-      try {
-        const idToken = await fbUser.getIdToken();
-        await fetch('/api/auth/sync-admin-claim', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-        });
-      } catch (syncErr) {
-        console.warn('[AdminLogin] sync-admin-claim network notice:', syncErr);
-      }
-
-      // 4. Force refresh ID token
-      try {
-        await fbUser.getIdTokenResult(true);
-      } catch {
-        // Continue
-      }
-
-      // 5. Store fresh ID token & navigate to /admin
-      const refreshedToken = await fbUser.getIdToken();
-      localStorage.setItem('genius_token', refreshedToken);
-
-      navigate('/admin');
+      await completeAdminAuth(userCred.user);
     } catch (err: any) {
       console.error('Admin login error:', err);
       setError(formatFirebaseAuthError(err));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleAdminLogin = async () => {
+    setError(null);
+    setIsGoogleLoading(true);
+
+    try {
+      const userCred = await signInWithPopup(auth, googleProvider);
+      await completeAdminAuth(userCred.user);
+    } catch (err: any) {
+      console.error('Admin Google login error:', err);
+      setError(formatFirebaseAuthError(err));
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -156,6 +173,44 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
               </GlassButton>
             </div>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
+              <span className="bg-[#0e1015] px-3 text-slate-400">or continue with</span>
+            </div>
+          </div>
+
+          <GlassButton
+            variant="secondary"
+            size="lg"
+            type="button"
+            className="w-full"
+            onClick={handleGoogleAdminLogin}
+            isLoading={isGoogleLoading}
+          >
+            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+              <path
+                fill="#EA4335"
+                d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
+              />
+              <path
+                fill="#4285F4"
+                d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.1s.7 5.4 1.9 7.8l3.7-2.9c-.2-.7-.4-1.5-.4-2.3z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 17C3.7 20.7 7.5 23.5 12 23.5z"
+              />
+            </svg>
+            Google Admin Sign In
+          </GlassButton>
 
           <div className="mt-8 pt-4 border-t border-white/8 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
             <Lock className="w-3 h-3 text-slate-500" />

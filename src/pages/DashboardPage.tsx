@@ -136,9 +136,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {/* Top Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">
-            {brandName} {tagline} Dashboard
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-extrabold text-white">
+              {brandName} {tagline} Dashboard
+            </h1>
+            <span
+              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                user?.role === 'ADMIN' ||
+                user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
+                (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'bg-white/10 text-slate-300 border border-white/15'
+              }`}
+            >
+              {user?.role === 'ADMIN' ||
+              user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
+              (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com'
+                ? 'Administrator'
+                : 'Student'}
+            </span>
+          </div>
           <p className="text-xs text-slate-400 mt-1">
             Welcome, <strong className="text-white">{user?.name}</strong>. Track your progress and credentials.
           </p>

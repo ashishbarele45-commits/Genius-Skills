@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { ShieldCheck, Phone } from 'lucide-react';
 import { BrandLogo } from '../common/BrandLogo';
 import { useBrand } from '../../context/BrandContext';
@@ -9,6 +9,28 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ navigate }) => {
   const { brandName, tagline } = useBrand();
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hidden 6-click admin entry
+  const handleAdminSecretClick = () => {
+    setClickCount((prev) => {
+      const nextCount = prev + 1;
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+
+      if (nextCount >= 6) {
+        navigate('/admin/login');
+        return 0;
+      }
+
+      clickTimerRef.current = setTimeout(() => {
+        setClickCount(0);
+      }, 3000);
+
+      return nextCount;
+    });
+  };
+
   return (
     <footer className="mt-32 border-t border-white/5 bg-[#08090a] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-20">
@@ -64,7 +86,13 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
         </div>
 
         <div className="mt-20 pt-10 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 text-[11px] text-slate-500 font-medium">
-          <p>© {new Date().getFullYear()} {brandName} {tagline}. All rights reserved.</p>
+          <p
+            onClick={handleAdminSecretClick}
+            className="cursor-default select-none transition-colors hover:text-slate-400"
+            title="GENIUS SKILLS"
+          >
+            © {new Date().getFullYear()} {brandName} {tagline}. All rights reserved.
+          </p>
           <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/10">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
             <span className="text-slate-400 tracking-wide uppercase font-bold">Secure Checkout with Razorpay</span>
