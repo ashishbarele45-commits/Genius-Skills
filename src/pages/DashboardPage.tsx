@@ -17,6 +17,7 @@ import {
   PlayCircle,
   ExternalLink,
   Trash2,
+  Shield,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -143,10 +144,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </p>
         </div>
 
-        <GlassButton variant="outline" size="sm" onClick={() => navigate('/courses')}>
-          <BookOpen className="w-4 h-4 mr-1.5" />
-          Browse More Courses
-        </GlassButton>
+        <div className="flex items-center gap-2.5">
+          {(user?.role === 'ADMIN' || user?.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user?.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+            <GlassButton
+              variant="primary"
+              size="sm"
+              onClick={() => navigate('/admin')}
+              className="bg-amber-500/20 border-amber-500/30 text-amber-300 hover:bg-amber-500/30"
+            >
+              <Shield className="w-4 h-4 mr-1.5 text-amber-400" />
+              Go to Admin Panel
+            </GlassButton>
+          )}
+          <GlassButton variant="outline" size="sm" onClick={() => navigate('/courses')}>
+            <BookOpen className="w-4 h-4 mr-1.5" />
+            Browse More Courses
+          </GlassButton>
+        </div>
       </div>
 
       {/* iOS Segmented Bubble Tabs navigation */}

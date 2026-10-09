@@ -11,9 +11,9 @@ interface BrandContextType {
   refreshBrand: () => Promise<void>;
 }
 
-const DEFAULT_LOGO = '/logo.png';
-const DEFAULT_BRAND = 'GENIUS';
-const DEFAULT_TAGLINE = 'SKILLS';
+const DEFAULT_LOGO = 'https://res.cloudinary.com/ntspltr3/image/upload/v1791397447/b5063c05-ec02-4baa-83aa-a6a64db1a363-removebg-preview.png';
+const DEFAULT_BRAND = 'GENIUS SKILLS';
+const DEFAULT_TAGLINE = 'Learn Skills. Build Your Future.';
 
 const BrandContext = createContext<BrandContextType>({
   logoUrl: DEFAULT_LOGO,

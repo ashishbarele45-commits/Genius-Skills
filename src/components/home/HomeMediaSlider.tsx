@@ -177,7 +177,7 @@ export const HomeMediaSlider: React.FC<HomeMediaSliderProps> = ({
       opacity: 1,
       filter: 'blur(0px)',
       transition: {
-        x: { type: 'spring', stiffness: 280, damping: 32 },
+        x: { type: 'spring' as const, stiffness: 280, damping: 32 },
         opacity: { duration: 0.4 },
         filter: { duration: 0.3 },
       },
@@ -187,7 +187,7 @@ export const HomeMediaSlider: React.FC<HomeMediaSliderProps> = ({
       opacity: 0,
       filter: 'blur(4px)',
       transition: {
-        x: { type: 'spring', stiffness: 280, damping: 32 },
+        x: { type: 'spring' as const, stiffness: 280, damping: 32 },
         opacity: { duration: 0.35 },
         filter: { duration: 0.3 },
       },

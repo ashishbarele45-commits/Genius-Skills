@@ -67,15 +67,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let idToken = await fbUser.getIdToken();
           let tokenResult = await fbUser.getIdTokenResult();
           
-          // Secure admin check: strictly requires exact authorized Firebase UID and custom claim admin === true
+          // Secure admin check: authorized Firebase UID / Email and custom claims
           const isExactAdminAccount =
-            fbUser.uid === AUTHORIZED_ADMIN_UID &&
+            fbUser.uid === AUTHORIZED_ADMIN_UID ||
             (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
 
-          isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
+          const hasAdminClaim = Boolean(
+            tokenResult.claims?.admin === true ||
+            tokenResult.claims?.role === 'ADMIN'
+          );
 
-          // If exact authorized admin account and claim not yet reflected, request trusted backend sync
-          if (isExactAdminAccount && !isAdmin) {
+          isAdmin = isExactAdminAccount || hasAdminClaim;
+
+          // If exact authorized admin account, request trusted backend sync
+          if (isExactAdminAccount) {
             try {
               const syncRes = await fetch('/api/auth/sync-admin-claim', {
                 method: 'POST',
@@ -87,7 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (syncRes.ok) {
                 tokenResult = await fbUser.getIdTokenResult(true);
                 idToken = await fbUser.getIdToken();
-                isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
               }
             } catch (syncErr) {
               console.warn('[Auth] Error syncing admin custom claim:', syncErr);
@@ -99,9 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('[Auth] Error obtaining token:', err);
         }
 
+        const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
+          ? userProf.displayName
+          : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+
         const mappedUser: User = {
           id: fbUser.uid,
-          name: userProf?.displayName || fbUser.displayName || 'Student',
+          name: resolvedName,
           email: fbUser.email || '',
           role: isAdmin ? 'ADMIN' : 'STUDENT',
         };
@@ -144,12 +152,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let tokenResult = await fbUser.getIdTokenResult();
         
         const isExactAdminAccount =
-          fbUser.uid === AUTHORIZED_ADMIN_UID &&
+          fbUser.uid === AUTHORIZED_ADMIN_UID ||
           (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
 
-        isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
+        const hasAdminClaim = Boolean(
+          tokenResult.claims?.admin === true ||
+          tokenResult.claims?.role === 'ADMIN'
+        );
 
-        if (isExactAdminAccount && !isAdmin) {
+        isAdmin = isExactAdminAccount || hasAdminClaim;
+
+        if (isExactAdminAccount) {
           try {
             const syncRes = await fetch('/api/auth/sync-admin-claim', {
               method: 'POST',
@@ -161,7 +174,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (syncRes.ok) {
               tokenResult = await fbUser.getIdTokenResult(true);
               idToken = await fbUser.getIdToken();
-              isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
             }
           } catch (syncErr) {
             console.warn('[Auth] Error syncing admin custom claim during login:', syncErr);
@@ -173,9 +185,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('[Auth] Token error in login:', err);
       }
 
+      const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
+        ? userProf.displayName
+        : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+
       const mappedUser: User = {
         id: fbUser.uid,
-        name: userProf?.displayName || fbUser.displayName || 'Student',
+        name: resolvedName,
         email: fbUser.email || '',
         role: isAdmin ? 'ADMIN' : 'STUDENT',
       };
@@ -215,12 +231,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let tokenResult = await fbUser.getIdTokenResult();
         
         const isExactAdminAccount =
-          fbUser.uid === AUTHORIZED_ADMIN_UID &&
+          fbUser.uid === AUTHORIZED_ADMIN_UID ||
           (fbUser.email || '').toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
 
-        isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
+        const hasAdminClaim = Boolean(
+          tokenResult.claims?.admin === true ||
+          tokenResult.claims?.role === 'ADMIN'
+        );
 
-        if (isExactAdminAccount && !isAdmin) {
+        isAdmin = isExactAdminAccount || hasAdminClaim;
+
+        if (isExactAdminAccount) {
           try {
             const syncRes = await fetch('/api/auth/sync-admin-claim', {
               method: 'POST',
@@ -232,7 +253,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (syncRes.ok) {
               tokenResult = await fbUser.getIdTokenResult(true);
               idToken = await fbUser.getIdToken();
-              isAdmin = isExactAdminAccount && tokenResult.claims.admin === true;
             }
           } catch (syncErr) {
             console.warn('[Auth] Error syncing admin custom claim during Google login:', syncErr);
@@ -244,9 +264,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('[Auth] Token error in Google login:', err);
       }
 
+      const resolvedName = userProf?.displayName && userProf.displayName !== 'Student'
+        ? userProf.displayName
+        : (isAdmin ? (fbUser.displayName || 'Ashish Barele') : (fbUser.displayName || 'Student'));
+
       const mappedUser: User = {
         id: fbUser.uid,
-        name: userProf?.displayName || fbUser.displayName || 'Student',
+        name: resolvedName,
         email: fbUser.email || '',
         role: isAdmin ? 'ADMIN' : 'STUDENT',
       };

@@ -17,8 +17,10 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() &&
-        request.auth.uid == 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' &&
-        request.auth.token.admin == true;
+        (
+          (request.auth.uid == 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' && (request.auth.token.admin == true || request.auth.token.email == 'ashishbarele45@gmail.com')) ||
+          request.auth.token.admin == true
+        );
     }
 
     function isValidId(id) {

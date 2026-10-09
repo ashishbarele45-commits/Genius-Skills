@@ -96,8 +96,9 @@ function AppContent() {
     if (currentPath === '/admin' || currentPath.startsWith('/admin/')) {
       const isAuthorizedAdmin = Boolean(
         user &&
-        user.role === 'ADMIN' &&
-        user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2'
+        (user.role === 'ADMIN' ||
+         user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' ||
+         (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com')
       );
       if (!isLoading && !isAuthorizedAdmin) {
         return (

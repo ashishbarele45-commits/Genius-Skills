@@ -35,7 +35,15 @@ export async function getUserProfile(uid: string): Promise<FirestoreUserProfile 
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
   if (!snap.exists()) return null;
-  return snap.data() as FirestoreUserProfile;
+  const profile = snap.data() as FirestoreUserProfile;
+  const isAuthorizedAdmin = uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || profile.email?.toLowerCase() === 'ashishbarele45@gmail.com';
+  if (isAuthorizedAdmin) {
+    profile.role = 'ADMIN';
+    if (!profile.displayName || profile.displayName === 'Student') {
+      profile.displayName = 'Ashish Barele';
+    }
+  }
+  return profile;
 }
 
 export async function createUserProfile(
@@ -44,15 +52,30 @@ export async function createUserProfile(
 ): Promise<FirestoreUserProfile> {
   const userRef = doc(db, 'users', uid);
   const existing = await getDoc(userRef);
+  const isAuthorizedAdmin = uid === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || data.email.toLowerCase() === 'ashishbarele45@gmail.com';
+
   if (existing.exists()) {
-    return existing.data() as FirestoreUserProfile;
+    const existingData = existing.data() as FirestoreUserProfile;
+    if (isAuthorizedAdmin && (existingData.role !== 'ADMIN' || !existingData.displayName || existingData.displayName === 'Student')) {
+      await updateDoc(userRef, {
+        role: 'ADMIN',
+        displayName: existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Ashish Barele',
+        updatedAt: serverTimestamp(),
+      });
+      existingData.role = 'ADMIN';
+      existingData.displayName = existingData.displayName && existingData.displayName !== 'Student' ? existingData.displayName : 'Ashish Barele';
+    }
+    return existingData;
   }
 
-  const role: 'STUDENT' | 'ADMIN' = data.role || 'STUDENT';
+  const role: 'STUDENT' | 'ADMIN' = isAuthorizedAdmin ? 'ADMIN' : (data.role || 'STUDENT');
+  const displayName = isAuthorizedAdmin
+    ? (data.displayName && data.displayName !== 'Student' ? data.displayName : 'Ashish Barele')
+    : (data.displayName || 'Student');
 
   const profile: FirestoreUserProfile = {
     uid,
-    displayName: data.displayName || 'Student',
+    displayName,
     email: data.email.toLowerCase(),
     photoURL: data.photoURL || null,
     role,

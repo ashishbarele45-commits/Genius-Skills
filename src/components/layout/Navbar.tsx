@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Search,
+  Shield,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -121,56 +122,87 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
             </form>
 
             {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                  className="flex items-center gap-2 pl-1 pr-3.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 text-xs font-medium text-white transition-all cursor-pointer active:scale-95"
-                >
-                  <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold shadow-inner">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="max-w-[80px] lg:max-w-[120px] truncate">{user.name}</span>
-                </button>
-                <AnimatePresence>
-                  {isUserDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsUserDropdownOpen(false)} />
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-3 w-64 rounded-[28px] bg-[#0d0f14]/98 backdrop-blur-3xl border border-white/15 p-2.5 shadow-[0_32px_80px_rgba(0,0,0,0.85)] z-50 overflow-hidden"
-                      >
-                        <div className="px-4 py-3 border-b border-white/8 mb-1.5">
-                          <p className="text-xs font-bold text-white truncate">{user.name}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
-                        </div>
-                        <button
-                          onClick={() => { navigate('/dashboard'); setIsUserDropdownOpen(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all text-left"
+              <div className="flex items-center gap-2">
+                {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] cursor-pointer"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Admin Panel</span>
+                  </button>
+                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                    className="flex items-center gap-2 pl-1 pr-3.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 text-xs font-medium text-white transition-all cursor-pointer active:scale-95"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold shadow-inner">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="max-w-[80px] lg:max-w-[120px] truncate">{user.name}</span>
+                  </button>
+                  <AnimatePresence>
+                    {isUserDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsUserDropdownOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute right-0 mt-3 w-64 rounded-[28px] bg-[#0d0f14]/98 backdrop-blur-3xl border border-white/15 p-2.5 shadow-[0_32px_80px_rgba(0,0,0,0.85)] z-50 overflow-hidden"
                         >
-                          <LayoutDashboard className="w-4 h-4" />
-                          Dashboard
-                        </button>
-                        <button
-                          onClick={() => { navigate('/my-courses'); setIsUserDropdownOpen(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all text-left"
-                        >
-                          <BookOpen className="w-4 h-4" />
-                          My Courses
-                        </button>
-                        <div className="h-px bg-white/8 my-1.5 mx-2" />
-                        <button
-                          onClick={async () => { await logout(); setIsUserDropdownOpen(false); navigate('/'); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all text-left font-bold"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Sign Out
-                        </button>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+                          <div className="px-4 py-3 border-b border-white/8 mb-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                (user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com')
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : 'bg-white/10 text-slate-300 border border-white/15'
+                              }`}>
+                                {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') ? 'Admin' : 'Student'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{user.email}</p>
+                          </div>
+
+                          {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                            <button
+                              onClick={() => { navigate('/admin'); setIsUserDropdownOpen(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 transition-all text-left font-bold"
+                            >
+                              <Shield className="w-4 h-4 text-amber-400" />
+                              Admin Panel
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => { navigate('/dashboard'); setIsUserDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all text-left"
+                          >
+                            <LayoutDashboard className="w-4 h-4" />
+                            Dashboard
+                          </button>
+                          <button
+                            onClick={() => { navigate('/my-courses'); setIsUserDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all text-left"
+                          >
+                            <BookOpen className="w-4 h-4" />
+                            My Courses
+                          </button>
+                          <div className="h-px bg-white/8 my-1.5 mx-2" />
+                          <button
+                            onClick={async () => { await logout(); setIsUserDropdownOpen(false); navigate('/'); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all text-left font-bold"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Sign Out
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -247,12 +279,23 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
 
               <div className="pt-3 flex flex-col gap-2">
                 {user ? (
-                  <button
-                    onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}
-                    className="btn-primary w-full h-10 text-xs"
-                  >
-                    Dashboard
-                  </button>
+                  <>
+                    {(user.role === 'ADMIN' || user.id === 'Bj7qBJUBTvY97fQFAn1wpZEATUq2' || (user.email || '').toLowerCase() === 'ashishbarele45@gmail.com') && (
+                      <button
+                        onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }}
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold cursor-pointer"
+                      >
+                        <Shield className="w-4 h-4 text-amber-400" />
+                        Admin Panel
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}
+                      className="btn-primary w-full h-10 text-xs"
+                    >
+                      Dashboard
+                    </button>
+                  </>
                 ) : (
                   <div className="flex gap-2">
                     <button
