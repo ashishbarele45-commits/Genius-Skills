@@ -123,15 +123,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate, onSearch
 
             {user ? (
               <div className="flex items-center gap-2">
-                {user.role === 'ADMIN' && (
-                  <button
-                    onClick={() => navigate('/admin')}
-                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] cursor-pointer"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Admin Panel</span>
-                  </button>
-                )}
                 <div className="relative">
                   <button
                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}

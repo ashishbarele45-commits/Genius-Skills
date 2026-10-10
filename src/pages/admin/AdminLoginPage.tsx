@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { formatFirebaseAuthError } from '../../lib/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider, formatFirebaseAuthError } from '../../lib/firebase';
+import { verifyAdminStatus } from '../../services/firebaseService';
 import { GlassCard } from '../../components/ui/glass/GlassCard';
 import { GlassButton } from '../../components/ui/glass/GlassButton';
 import { GlassInput } from '../../components/ui/glass/GlassInput';
@@ -14,18 +15,12 @@ interface AdminLoginPageProps {
 
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
   const { brandName, tagline } = useBrand();
-  const { login, loginWithGoogle, logout } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const AUTHORIZED_ADMIN_EMAILS = [
-    'admin.geniusskills@gmail.com',
-    'ashishbarele45@gmail.com',
-  ];
 
   const formatAdminAuthError = (err: any): string => {
     const code = err?.code || '';
@@ -53,26 +48,31 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
     setIsLoading(true);
 
     try {
-      // 1. Authenticate through centralized AuthContext
-      const mappedUser = await login(email.trim(), password);
-      const userEmail = (mappedUser.email || '').toLowerCase();
-      const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
+      // 1. Authenticate with existing Firebase project (genius-course)
+      const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const fbUser = userCred.user;
 
-      // 2. Strict administrator verification
-      if (!isAllowedEmail && mappedUser.role !== 'ADMIN') {
-        await logout();
-        setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
+      // 2. Check administrator authorization separately
+      const isVerified = await verifyAdminStatus(fbUser);
+
+      if (!isVerified) {
+        // Authenticated, but admin permission is not configured:
+        // Must NEVER fall back to student dashboard!
+        await signOut(auth);
+        setError('Login successful, but administrator access is not configured.');
         return;
       }
 
-      // 3. Immediately transition to Admin Panel
+      // 3. User is verified administrator -> Navigate to /admin ONLY
+      const idToken = await fbUser.getIdToken();
+      localStorage.setItem('genius_token', idToken);
       navigate('/admin');
     } catch (err: any) {
-      console.error('Admin login error:', err);
       setError(formatAdminAuthError(err));
     } finally {
       setIsLoading(false);
@@ -80,23 +80,30 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
   };
 
   const handleGoogleAdminLogin = async () => {
+    if (isGoogleLoading) return;
     setError(null);
     setIsGoogleLoading(true);
 
     try {
-      const mappedUser = await loginWithGoogle();
-      const userEmail = (mappedUser.email || '').toLowerCase();
-      const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
+      // 1. Authenticate using Firebase Google provider
+      const userCred = await signInWithPopup(auth, googleProvider);
+      const fbUser = userCred.user;
 
-      if (!isAllowedEmail && mappedUser.role !== 'ADMIN') {
-        await logout();
-        setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
+      // 2. Check administrator authorization separately (Google login must not automatically grant admin access)
+      const isVerified = await verifyAdminStatus(fbUser);
+
+      if (!isVerified) {
+        // Must NEVER fall back to student dashboard!
+        await signOut(auth);
+        setError('Login successful, but administrator access is not configured.');
         return;
       }
 
+      // 3. User is verified administrator -> Navigate to /admin ONLY
+      const idToken = await fbUser.getIdToken();
+      localStorage.setItem('genius_token', idToken);
       navigate('/admin');
     } catch (err: any) {
-      console.error('Admin Google login error:', err);
       setError(formatAdminAuthError(err));
     } finally {
       setIsGoogleLoading(false);

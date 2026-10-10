@@ -19,6 +19,9 @@ router.post('/sync-admin-claim', async (req, res) => {
       'admin.geniusskills@gmail.com',
       'ashishbarele45@gmail.com',
     ];
+    const AUTHORIZED_ADMIN_UIDS = [
+      'PJc1v6mqLXh4qk757GW5eVtEJmS2',
+    ];
 
     let uid = '';
     let email = '';
@@ -42,8 +45,8 @@ router.post('/sync-admin-claim', async (req, res) => {
       }
     }
 
-    // Strictly check the authorized admin email
-    if (AUTHORIZED_ADMIN_EMAILS.includes(email) && uid) {
+    // Strictly check authorized admin UID or email
+    if ((AUTHORIZED_ADMIN_UIDS.includes(uid) || AUTHORIZED_ADMIN_EMAILS.includes(email)) && uid) {
       let claimsProvisioned = false;
       try {
         await adminAuth.setCustomUserClaims(uid, {

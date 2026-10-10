@@ -27,6 +27,8 @@ export function generateToken(payload: { id: string; email: string; role: string
   return `${header}.${data}.${signature}`;
 }
 
+export const AUTHORIZED_ADMIN_UIDS = ['PJc1v6mqLXh4qk757GW5eVtEJmS2'];
+
 export async function verifyTokenOrFirebase(token: string): Promise<AuthUser | null> {
   const AUTHORIZED_ADMIN_EMAILS = ['admin.geniusskills@gmail.com', 'ashishbarele45@gmail.com'];
 
@@ -38,7 +40,7 @@ export async function verifyTokenOrFirebase(token: string): Promise<AuthUser | n
       const isAdmin =
         decoded.admin === true ||
         decoded.role === 'ADMIN' ||
-        AUTHORIZED_ADMIN_EMAILS.includes(email);
+        AUTHORIZED_ADMIN_UIDS.includes(decoded.uid);
 
       return {
         id: decoded.uid,
@@ -62,7 +64,7 @@ export async function verifyTokenOrFirebase(token: string): Promise<AuthUser | n
           const isAdmin =
             payload.admin === true ||
             payload.role === 'ADMIN' ||
-            AUTHORIZED_ADMIN_EMAILS.includes(email);
+            AUTHORIZED_ADMIN_UIDS.includes(uid);
 
           return {
             id: uid,

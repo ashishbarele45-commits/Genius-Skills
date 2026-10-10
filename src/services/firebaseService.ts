@@ -35,6 +35,54 @@ export const isPlatformAdminEmail = (email?: string | null): boolean => {
   return clean === 'admin.geniusskills@gmail.com' || clean === 'ashishbarele45@gmail.com';
 };
 
+export const AUTHORIZED_ADMIN_UIDS = [
+  'PJc1v6mqLXh4qk757GW5eVtEJmS2',
+];
+
+/**
+ * Strict administrator role verification:
+ * 1. Inspects Firebase Auth custom claims (admin: true or role: 'ADMIN')
+ * 2. Checks administrator registry document in Firestore: admins/{uid} (active == true, role == 'ADMIN')
+ * 3. Validates against the verified platform administrator UID
+ * Normal student users or unauthorized accounts will return false.
+ */
+export async function verifyAdminStatus(user: { uid: string; getIdTokenResult?: () => Promise<any>; email?: string | null } | null): Promise<boolean> {
+  if (!user || !user.uid) return false;
+
+  // 1. Inspect verified custom claims
+  if (typeof user.getIdTokenResult === 'function') {
+    try {
+      const tokenResult = await user.getIdTokenResult();
+      if (tokenResult?.claims?.admin === true || tokenResult?.claims?.role === 'ADMIN') {
+        return true;
+      }
+    } catch (claimErr) {
+      console.warn('[AdminCheck] Custom claim inspection notice:', claimErr);
+    }
+  }
+
+  // 2. Query Firestore administrator registry document: admins/{uid}
+  try {
+    const adminDocRef = doc(db, 'admins', user.uid);
+    const snap = await getDoc(adminDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data && data.active === true && (data.role === 'ADMIN' || data.role === 'admin')) {
+        return true;
+      }
+    }
+  } catch (registryErr: any) {
+    console.warn('[AdminCheck] Admin registry notice:', registryErr?.message || registryErr);
+  }
+
+  // 3. Authenticated administrator UID verification
+  if (AUTHORIZED_ADMIN_UIDS.includes(user.uid)) {
+    return true;
+  }
+
+  return false;
+}
+
 // ==================== USER PROFILE ====================
 
 export async function getUserProfile(uid: string): Promise<FirestoreUserProfile | null> {

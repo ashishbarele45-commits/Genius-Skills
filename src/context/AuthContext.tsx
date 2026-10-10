@@ -11,7 +11,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth, googleProvider, formatFirebaseAuthError, trackEvent } from '../lib/firebase';
-import { getUserProfile, createUserProfile, updateUserProfile, isPlatformAdminEmail, FirestoreUserProfile } from '../services/firebaseService';
+import { getUserProfile, createUserProfile, updateUserProfile, isPlatformAdminEmail, verifyAdminStatus, FirestoreUserProfile } from '../services/firebaseService';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -55,43 +55,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (fbUser) {
         setFirebaseUser(fbUser);
         let userProf: FirestoreUserProfile | null = null;
-        let isAdmin = false;
 
-        const emailLower = (fbUser.email || '').toLowerCase();
-        const isKnownAdmin = isAuthorizedAdminEmail(emailLower);
+        // Strict role validation: Custom claims, admins/{uid} registry document, and authorized UID
+        const isAdmin = await verifyAdminStatus(fbUser);
 
         try {
-          const tokenResult = await fbUser.getIdTokenResult();
-          const hasAdminClaim = Boolean(
-            tokenResult.claims?.admin === true ||
-            tokenResult.claims?.role === 'ADMIN'
-          );
-
-          // Admin is authorized if token has custom claim OR matches verified admin emails
-          isAdmin = hasAdminClaim || isKnownAdmin;
-
           const idToken = await fbUser.getIdToken();
           localStorage.setItem('genius_token', idToken);
 
-          // If admin email logged in, request background custom claim sync if not yet active
-          if (isKnownAdmin && !hasAdminClaim) {
+          if (isAdmin) {
             fetch('/api/auth/sync-admin-claim', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${idToken}`,
                 'Content-Type': 'application/json',
               },
-            })
-              .then(async (res) => {
-                if (res.ok) {
-                  await fbUser.getIdTokenResult(true);
-                }
-              })
-              .catch((err) => console.warn('[Auth] sync-admin-claim background notice:', err));
+            }).catch(() => {});
           }
         } catch (tokenErr) {
-          console.warn('[Auth] Token inspection notice:', tokenErr);
-          if (isKnownAdmin) isAdmin = true;
+          console.warn('[Auth] Token notice:', tokenErr);
         }
 
         // Fast profile fetch with fallback
@@ -109,10 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (err) {
           console.warn('[Auth] Profile sync notice:', err);
-        }
-
-        if (userProf?.role === 'ADMIN') {
-          isAdmin = true;
         }
 
         const resolvedName = pendingRegistrationNameRef.current
@@ -144,26 +122,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
       const fbUser = userCred.user;
-      const emailLower = (fbUser.email || '').toLowerCase();
-      let isAdmin = isAuthorizedAdminEmail(emailLower);
+      const isAdmin = await verifyAdminStatus(fbUser);
 
       try {
-        const tokenResult = await fbUser.getIdTokenResult();
-        if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'ADMIN') {
-          isAdmin = true;
-        }
         const idToken = await fbUser.getIdToken();
         localStorage.setItem('genius_token', idToken);
-
-        if (isAdmin && !(tokenResult.claims?.admin === true)) {
-          fetch('/api/auth/sync-admin-claim', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json',
-            },
-          }).catch(() => {});
-        }
       } catch {}
 
       const mappedUser: User = {
@@ -185,29 +148,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCred = await signInWithPopup(auth, googleProvider);
       const fbUser = userCred.user;
-      const emailLower = (fbUser.email || '').toLowerCase();
-      let isAdmin = isAuthorizedAdminEmail(emailLower);
+      const isAdmin = await verifyAdminStatus(fbUser);
 
       try {
-        const tokenResult = await fbUser.getIdTokenResult();
-        if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'ADMIN') {
-          isAdmin = true;
-        }
         const idToken = await fbUser.getIdToken();
         localStorage.setItem('genius_token', idToken);
-
-        if (isAdmin && !(tokenResult.claims?.admin === true)) {
-          fetch('/api/auth/sync-admin-claim', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json',
-            },
-          }).catch(() => {});
-        }
       } catch {}
 
-      // Fast non-blocking profile creation for Google user
+      // Fast non-blocking profile creation for Google user (default role STUDENT unless verified admin)
       createUserProfile(fbUser.uid, {
         displayName: fbUser.displayName || (isAdmin ? 'Administrator' : 'Student'),
         email: fbUser.email || '',
