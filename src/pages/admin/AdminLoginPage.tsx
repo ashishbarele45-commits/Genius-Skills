@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider, formatFirebaseAuthError } from '../../lib/firebase';
-import { getUserProfile } from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
+import { formatFirebaseAuthError } from '../../lib/firebase';
 import { GlassCard } from '../../components/ui/glass/GlassCard';
 import { GlassButton } from '../../components/ui/glass/GlassButton';
 import { GlassInput } from '../../components/ui/glass/GlassInput';
@@ -15,6 +14,7 @@ interface AdminLoginPageProps {
 
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
   const { brandName, tagline } = useBrand();
+  const { login, loginWithGoogle, logout } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +31,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
     const code = err?.code || '';
 
     if (code === 'auth/user-not-found') {
-      return `Administrator account not found in Firebase Authentication (project genius-course). Please create the user in Firebase Console under Authentication > Users with email admin.geniusskills@gmail.com.`;
+      return `Administrator account not found in Firebase Authentication (project genius-course). Please verify the administrator email.`;
     }
     if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
       return 'Invalid email or password. Please verify your administrator credentials.';
@@ -51,64 +51,26 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
     return formatFirebaseAuthError(err);
   };
 
-  const completeAdminAuth = async (fbUser: any) => {
-    const userEmail = (fbUser.email || '').toLowerCase();
-
-    // 1. Inspect administrator custom claim
-    let tokenResult = await fbUser.getIdTokenResult();
-    let hasAdminClaim = Boolean(
-      tokenResult.claims?.admin === true ||
-      tokenResult.claims?.role === 'ADMIN'
-    );
-
-    const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
-
-    // 2. Verify account is an authorized administrator
-    if (!isAllowedEmail && !hasAdminClaim) {
-      await signOut(auth);
-      localStorage.removeItem('genius_token');
-      setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
-      return;
-    }
-
-    // 3. If claim is missing, attempt trusted backend sync
-    if (!hasAdminClaim && isAllowedEmail) {
-      try {
-        const idToken = await fbUser.getIdToken();
-        const syncRes = await fetch('/api/auth/sync-admin-claim', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-        });
-        if (syncRes.ok) {
-          tokenResult = await fbUser.getIdTokenResult(true);
-          hasAdminClaim = Boolean(
-            tokenResult.claims?.admin === true ||
-            tokenResult.claims?.role === 'ADMIN'
-          );
-        }
-      } catch (syncErr) {
-        console.warn('[AdminLogin] sync-admin-claim network notice:', syncErr);
-      }
-    }
-
-    // 4. Store fresh ID token & navigate to /admin
-    const refreshedToken = await fbUser.getIdToken();
-    localStorage.setItem('genius_token', refreshedToken);
-
-    navigate('/admin');
-  };
-
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      await completeAdminAuth(userCred.user);
+      // 1. Authenticate through centralized AuthContext
+      const mappedUser = await login(email.trim(), password);
+      const userEmail = (mappedUser.email || '').toLowerCase();
+      const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
+
+      // 2. Strict administrator verification
+      if (!isAllowedEmail && mappedUser.role !== 'ADMIN') {
+        await logout();
+        setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
+        return;
+      }
+
+      // 3. Immediately transition to Admin Panel
+      navigate('/admin');
     } catch (err: any) {
       console.error('Admin login error:', err);
       setError(formatAdminAuthError(err));
@@ -122,8 +84,17 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ navigate }) => {
     setIsGoogleLoading(true);
 
     try {
-      const userCred = await signInWithPopup(auth, googleProvider);
-      await completeAdminAuth(userCred.user);
+      const mappedUser = await loginWithGoogle();
+      const userEmail = (mappedUser.email || '').toLowerCase();
+      const isAllowedEmail = AUTHORIZED_ADMIN_EMAILS.includes(userEmail);
+
+      if (!isAllowedEmail && mappedUser.role !== 'ADMIN') {
+        await logout();
+        setError(`Access Denied: Account (${userEmail}) is not authorized for administrator access. Normal students must sign in through the student login page.`);
+        return;
+      }
+
+      navigate('/admin');
     } catch (err: any) {
       console.error('Admin Google login error:', err);
       setError(formatAdminAuthError(err));

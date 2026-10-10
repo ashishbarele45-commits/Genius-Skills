@@ -65,7 +65,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
     if (cleanPath === '/admin/payments') return 'payments';
     if (cleanPath === '/admin/coupons') return 'coupons';
     if (cleanPath === '/admin/reviews') return 'reviews';
-    if (cleanPath === '/admin/certificates') return 'certificates';
+    if (cleanPath === '/admin/certificates' || cleanPath === '/admin/certificate-templates') return 'certificates';
     if (cleanPath === '/admin/settings') return 'settings';
     if (cleanPath === '/admin/branding') return 'branding';
     if (cleanPath === '/admin/inquiries') return 'inquiries';
@@ -1856,6 +1856,127 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
         </div>
       )}
 
+      {/* MEDIA SLIDER */}
+      {activeTab === 'slider' && (
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">Homepage Media Slider</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Manage hero presentations, promotional images, and video walk-throughs for the homepage hero container.
+              </p>
+            </div>
+            <GlassButton variant="primary" size="sm" onClick={() => handleOpenSlideModal()}>
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add Media Slide
+            </GlassButton>
+          </div>
+
+          {mediaSlides.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {mediaSlides.map((slide, idx) => (
+                <div
+                  key={slide.id}
+                  className="p-4 sm:p-5 rounded-[24px] bg-white/[0.02] border border-white/8 hover:border-white/15 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex flex-col gap-1 items-center justify-center">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => handleMoveSlideOrder(idx, 'up')}
+                        className={`p-1.5 rounded-full border ${idx === 0 ? 'opacity-30 border-white/5 text-slate-600' : 'hover:bg-white/10 border-white/10 text-white cursor-pointer'}`}
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[10px] font-mono font-bold text-slate-400">#{slide.order || idx + 1}</span>
+                      <button
+                        type="button"
+                        disabled={idx === mediaSlides.length - 1}
+                        onClick={() => handleMoveSlideOrder(idx, 'down')}
+                        className={`p-1.5 rounded-full border ${idx === mediaSlides.length - 1 ? 'opacity-30 border-white/5 text-slate-600' : 'hover:bg-white/10 border-white/10 text-white cursor-pointer'}`}
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="w-24 h-16 rounded-xl bg-black/60 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center relative">
+                      {slide.mediaType === 'VIDEO' ? (
+                        <>
+                          {slide.thumbnailUrl ? (
+                            <img src={slide.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <VideoIcon className="w-6 h-6 text-slate-500" />
+                          )}
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white fill-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={slide.mediaUrl} alt="" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${slide.mediaType === 'VIDEO' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}`}>
+                          {slide.mediaType}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${slide.active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'}`}>
+                          {slide.active ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-white truncate max-w-sm">
+                        {slide.title || 'Untitled Slide'}
+                      </h4>
+                      <p className="text-xs text-slate-400 truncate max-w-md">
+                        {slide.caption || slide.mediaUrl}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      onClick={() => handleToggleSlideActive(slide)}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer font-medium ${slide.active ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'}`}
+                    >
+                      {slide.active ? 'Disable' : 'Enable'}
+                    </button>
+                    <GlassButton variant="outline" size="sm" onClick={() => handleOpenPreview(slide)} title="Preview Slide">
+                      <Eye className="w-3.5 h-3.5" />
+                    </GlassButton>
+                    <GlassButton variant="secondary" size="sm" onClick={() => handleOpenSlideModal(slide)} title="Edit Slide">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </GlassButton>
+                    <button
+                      onClick={() => handleDeleteSlide(slide)}
+                      className="p-2 rounded-full text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      title="Delete Slide"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-14 rounded-[32px] bg-white/[0.02] border border-white/10 text-center">
+              <Sliders className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-white">No media slides added yet.</h3>
+              <p className="text-xs text-slate-400 mt-1 mb-4">
+                Add images or videos to appear in the curved hero slider on your homepage.
+              </p>
+              <GlassButton variant="primary" size="sm" onClick={() => handleOpenSlideModal()}>
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add First Slide
+              </GlassButton>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 9. CERTIFICATES */}
       {activeTab === 'certificates' && (
         <div>
@@ -2559,6 +2680,175 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ navigate
             </GlassButton>
           </div>
         </form>
+      </GlassModal>
+
+      {/* Media Slide Modal */}
+      <GlassModal
+        isOpen={isSlideModalOpen}
+        onClose={() => setIsSlideModalOpen(false)}
+        title={editingSlide ? 'Edit Media Slide' : 'Add Media Slide'}
+      >
+        <form onSubmit={handleSaveSlide} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <GlassSelect
+              pill
+              label="Media Type"
+              value={slideForm.mediaType}
+              onChange={(e) => setSlideForm({ ...slideForm, mediaType: e.target.value as 'IMAGE' | 'VIDEO' })}
+            >
+              <option value="IMAGE">Image Slide</option>
+              <option value="VIDEO">Video Slide / YouTube</option>
+            </GlassSelect>
+
+            <GlassInput
+              pill
+              label="Display Order"
+              type="number"
+              value={slideForm.order}
+              onChange={(e) => setSlideForm({ ...slideForm, order: Number(e.target.value) })}
+            />
+          </div>
+
+          <GlassInput
+            pill
+            label="Slide Title (Optional)"
+            value={slideForm.title}
+            onChange={(e) => setSlideForm({ ...slideForm, title: e.target.value })}
+            placeholder="e.g. Master Website Development"
+          />
+
+          <GlassTextarea
+            label="Caption / Subtitle (Optional)"
+            rows={2}
+            value={slideForm.caption}
+            onChange={(e) => setSlideForm({ ...slideForm, caption: e.target.value })}
+            placeholder="e.g. Learn practical web applications and AI workflows"
+          />
+
+          <div className="flex flex-col gap-1.5">
+            <GlassInput
+              pill
+              label={slideForm.mediaType === 'VIDEO' ? 'Video Source (YouTube URL, MP4 link, or Cloudinary)' : 'Image URL'}
+              value={slideForm.mediaUrl}
+              onChange={(e) => setSlideForm({ ...slideForm, mediaUrl: e.target.value })}
+              placeholder={slideForm.mediaType === 'VIDEO' ? 'https://www.youtube.com/watch?v=... or https://...' : 'https://...'}
+              required
+            />
+            <div className="flex items-center gap-3 px-1">
+              <label className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload File to Cloudinary</span>
+                <input
+                  type="file"
+                  accept={slideForm.mediaType === 'VIDEO' ? 'video/*' : 'image/*'}
+                  onChange={handleUploadSlideMediaFile}
+                  className="hidden"
+                  disabled={isUploadingSlideMedia}
+                />
+              </label>
+              {isUploadingSlideMedia && (
+                <span className="text-[10px] text-amber-400 font-medium">Uploading {slideMediaProgress}%...</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <GlassInput
+              pill
+              label="Thumbnail / Poster URL (Optional for videos)"
+              value={slideForm.thumbnailUrl}
+              onChange={(e) => setSlideForm({ ...slideForm, thumbnailUrl: e.target.value })}
+              placeholder="https://..."
+            />
+            <div className="flex items-center gap-3 px-1">
+              <label className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Poster Image</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadSlidePosterFile}
+                  className="hidden"
+                  disabled={isUploadingSlidePoster}
+                />
+              </label>
+              {isUploadingSlidePoster && (
+                <span className="text-[10px] text-amber-400 font-medium">Uploading poster {slidePosterProgress}%...</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={slideForm.active}
+                onChange={(e) => setSlideForm({ ...slideForm, active: e.target.checked })}
+                className="rounded"
+              />
+              <span>Active (Visible on public homepage hero)</span>
+            </label>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <GlassButton type="button" variant="secondary" size="sm" onClick={() => setIsSlideModalOpen(false)}>
+              Cancel
+            </GlassButton>
+            <GlassButton type="submit" variant="primary" size="sm">
+              Save Slide
+            </GlassButton>
+          </div>
+        </form>
+      </GlassModal>
+
+      {/* Media Slide Preview Modal */}
+      <GlassModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        title={previewSlide?.title || 'Slide Preview'}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+            {previewSlide?.mediaType === 'VIDEO' ? (() => {
+              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+              const match = previewSlide.mediaUrl.match(regExp);
+              const ytId = match && match[2].length === 11 ? match[2] : null;
+              if (ytId) {
+                return (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0`}
+                    title="Slide Preview"
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                );
+              }
+              return (
+                <video
+                  src={previewSlide.mediaUrl}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-contain"
+                />
+              );
+            })() : (
+              <img
+                src={previewSlide?.mediaUrl}
+                alt="Slide Preview"
+                className="w-full h-full object-contain"
+              />
+            )}
+          </div>
+          {previewSlide?.caption && (
+            <p className="text-xs text-slate-400">{previewSlide.caption}</p>
+          )}
+          <div className="flex justify-end pt-2">
+            <GlassButton variant="secondary" size="sm" onClick={() => setIsPreviewModalOpen(false)}>
+              Close
+            </GlassButton>
+          </div>
+        </div>
       </GlassModal>
 
       {/* Delete Confirmation Modal */}

@@ -9,6 +9,14 @@ interface HomeMediaSliderProps {
   className?: string;
 }
 
+// Utility to parse YouTube video IDs
+function parseYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return match && match[2].length === 11 ? match[2] : null;
+}
+
 // Utility to inject Cloudinary optimization transformations
 function getOptimizedCloudinaryUrl(url: string, type: 'IMAGE' | 'VIDEO'): string {
   if (!url || !url.includes('cloudinary.com')) return url;
@@ -219,26 +227,42 @@ export const HomeMediaSlider: React.FC<HomeMediaSliderProps> = ({
             exit="exit"
             className="absolute inset-0 w-full h-full flex items-center justify-center bg-black/40"
           >
-            {currentSlide.mediaType === 'VIDEO' ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-black">
-                <video
-                  ref={videoRef}
-                  key={currentSlide.mediaUrl}
-                  src={getOptimizedCloudinaryUrl(currentSlide.mediaUrl, 'VIDEO')}
-                  poster={currentSlide.thumbnailUrl ? getOptimizedCloudinaryUrl(currentSlide.thumbnailUrl, 'IMAGE') : undefined}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-3.5 right-3.5 z-10 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-[9px] font-bold text-white/80 uppercase tracking-wider flex items-center gap-1.5 pointer-events-none">
-                  <VolumeX className="w-2.5 h-2.5" />
-                  <span>Video</span>
+            {currentSlide.mediaType === 'VIDEO' ? (() => {
+              const ytId = parseYouTubeVideoId(currentSlide.mediaUrl);
+              if (ytId) {
+                return (
+                  <div className="relative w-full h-full flex items-center justify-center bg-black">
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1&autoplay=1&mute=1`}
+                      title={currentSlide.title || 'Video Slide'}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div className="relative w-full h-full flex items-center justify-center bg-black">
+                  <video
+                    ref={videoRef}
+                    key={currentSlide.mediaUrl}
+                    src={getOptimizedCloudinaryUrl(currentSlide.mediaUrl, 'VIDEO')}
+                    poster={currentSlide.thumbnailUrl ? getOptimizedCloudinaryUrl(currentSlide.thumbnailUrl, 'IMAGE') : undefined}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3.5 right-3.5 z-10 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-[9px] font-bold text-white/80 uppercase tracking-wider flex items-center gap-1.5 pointer-events-none">
+                    <VolumeX className="w-2.5 h-2.5" />
+                    <span>Video</span>
+                  </div>
                 </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="relative w-full h-full flex items-center justify-center bg-[#090b0e]">
                 <img
                   src={getOptimizedCloudinaryUrl(currentSlide.mediaUrl, 'IMAGE')}

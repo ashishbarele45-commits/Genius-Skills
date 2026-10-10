@@ -6,6 +6,7 @@ import { CourseCard } from '../components/course/CourseCard';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { useBrand } from '../context/BrandContext';
 import { HomeMediaSlider } from '../components/home/HomeMediaSlider';
+import { HowItWorksVideoSection } from '../components/common/HowItWorksVideoSection';
 import {
   Sparkles,
   ArrowRight,
@@ -58,11 +59,21 @@ const FloatingChip: React.FC<{
   </motion.div>
 );
 
-export const HomePage: React.FC<HomePageProps> = ({ navigate }) => {
+export const HomePage: React.FC<HomePageProps> = ({ navigate, initialSection }) => {
   const [featuredCourses, setFeaturedCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<SiteSettings>({});
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (initialSection === 'about') {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('how-it-works');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [initialSection]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -382,6 +393,9 @@ export const HomePage: React.FC<HomePageProps> = ({ navigate }) => {
             </div>
           </motion.div>
         </div>
+
+        {/* Informational Video Presentation */}
+        <HowItWorksVideoSection placement="home" />
       </section>
 
       {/* Support Section */}

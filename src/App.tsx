@@ -20,6 +20,7 @@ import { AuthPage } from './pages/AuthPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { GlassButton } from './components/ui/glass/GlassButton';
+import { BrandLogo } from './components/common/BrandLogo';
 import { ShieldAlert } from 'lucide-react';
 import appletConfig from '../firebase-applet-config.json';
 
@@ -94,8 +95,17 @@ function AppContent() {
 
     // 4. Admin Panel: /admin or /admin/* (Strict 403 for non-admins)
     if (currentPath === '/admin' || currentPath.startsWith('/admin/')) {
+      if (isLoading) {
+        return (
+          <div className="pt-36 pb-20 px-4 text-center max-w-md mx-auto min-h-screen relative z-10 flex flex-col items-center justify-center">
+            <BrandLogo size="lg" className="mb-4 animate-pulse" />
+            <p className="text-xs text-slate-400 font-medium">Verifying administrator authorization...</p>
+          </div>
+        );
+      }
+
       const isAuthorizedAdmin = Boolean(user && user.role === 'ADMIN');
-      if (!isLoading && !isAuthorizedAdmin) {
+      if (!isAuthorizedAdmin) {
         return (
           <div className="pt-36 pb-20 px-4 text-center max-w-md mx-auto min-h-screen relative z-10">
             <div className="p-8 sm:p-10 rounded-[32px] bg-white/[0.025] border border-rose-500/25 shadow-2xl backdrop-blur-2xl">
