@@ -27,7 +27,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     hero: 'h-24 sm:h-28 md:h-36',
   };
 
-  const activeSrc = (!useFallback && logoUrl) ? logoUrl : OFFICIAL_LOGO;
+  const activeSrc = (!useFallback && logoUrl && logoUrl.trim().startsWith('http')) ? logoUrl.trim() : OFFICIAL_LOGO;
 
   return (
     <img

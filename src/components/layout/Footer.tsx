@@ -26,7 +26,7 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
 
       clickTimerRef.current = setTimeout(() => {
         setClickCount(0);
-      }, 2500);
+      }, 3000);
 
       return nextCount;
     });

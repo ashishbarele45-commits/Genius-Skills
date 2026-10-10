@@ -454,18 +454,24 @@ export async function updateSiteSettings(settings: SiteSettings) {
 }
 
 export async function getBrandSettings(): Promise<BrandSettings | null> {
-  const snap = await getDoc(doc(db, 'siteSettings', 'branding'));
-  if (!snap.exists()) return null;
-  const data = snap.data();
-  return {
-    logoUrl: data.logoUrl || '',
-    logoPublicId: data.logoPublicId || '',
-    faviconUrl: data.faviconUrl || '',
-    faviconPublicId: data.faviconPublicId || '',
-    brandName: data.brandName || 'GENIUS',
-    tagline: data.tagline || 'SKILLS',
-    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : undefined,
-  } as BrandSettings;
+  try {
+    const snap = await getDoc(doc(db, 'siteSettings', 'branding'));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return {
+      logoUrl: data.logoUrl || '',
+      logoPublicId: data.logoPublicId || '',
+      faviconUrl: data.faviconUrl || '',
+      faviconPublicId: data.faviconPublicId || '',
+      brandName: data.brandName || 'GENIUS SKILLS',
+      tagline: data.tagline || 'Learn Skills. Build Your Future.',
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : undefined,
+    } as BrandSettings;
+  } catch (error: any) {
+    // If client is offline or network connecting, warn gracefully without crashing caller
+    console.warn('[BrandSettings] Remote brand settings unreachable (using defaults/cache):', error?.message || error);
+    return null;
+  }
 }
 
 export async function updateBrandSettings(settings: Partial<BrandSettings>) {
@@ -524,7 +530,15 @@ export async function getPublicMediaSlides(): Promise<MediaSlide[]> {
     })) as MediaSlide[];
     return list.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
   } catch (err) {
-    console.error('Error fetching public media slides:', err);
+    console.warn('Notice: Firestore public media slides unreachable, attempting backend API fallback:', err);
+    try {
+      const res = await fetch('/api/media-slides');
+      if (res.ok) {
+        const data = await res.json();
+        const slides = Array.isArray(data.slides) ? data.slides : [];
+        return slides.filter((s: MediaSlide) => s.active);
+      }
+    } catch {}
     return [];
   }
 }
@@ -538,7 +552,14 @@ export async function getAllMediaSlides(): Promise<MediaSlide[]> {
     })) as MediaSlide[];
     return list.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
   } catch (err) {
-    console.error('Error fetching all media slides:', err);
+    console.warn('Error fetching all media slides from Firestore, attempting backend API fallback:', err);
+    try {
+      const res = await fetch('/api/media-slides');
+      if (res.ok) {
+        const data = await res.json();
+        return Array.isArray(data.slides) ? data.slides : [];
+      }
+    } catch {}
     return [];
   }
 }

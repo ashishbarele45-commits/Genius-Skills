@@ -26,7 +26,11 @@ const BrandContext = createContext<BrandContextType>({
 
 export const BrandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [logoUrl, setLogoUrl] = useState<string>(() => {
-    return localStorage.getItem('genius_brand_logo') || DEFAULT_LOGO;
+    try {
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('genius_brand_logo') : null;
+      if (cached && cached.trim().startsWith('http')) return cached.trim();
+    } catch (_) {}
+    return DEFAULT_LOGO;
   });
   const [logoPublicId, setLogoPublicId] = useState<string>('');
   const [brandName, setBrandName] = useState<string>(DEFAULT_BRAND);
@@ -45,8 +49,8 @@ export const BrandProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setBrandName(settings.brandName || DEFAULT_BRAND);
         setTagline(settings.tagline || DEFAULT_TAGLINE);
       }
-    } catch (error) {
-      console.error('Failed to load brand settings:', error);
+    } catch (error: any) {
+      console.warn('Brand settings offline or inaccessible, using cached/default branding:', error?.message || error);
     } finally {
       setIsLoading(false);
     }

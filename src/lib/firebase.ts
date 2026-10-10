@@ -22,7 +22,7 @@ export const app: FirebaseApp = existingApps.length > 0 ? existingApps[0] : init
 
 // Canonical services using the SAME app instance
 export const auth = getAuth(app);
-export const db = appletConfig.firestoreDatabaseId
+export const db = (appletConfig.firestoreDatabaseId && appletConfig.projectId !== 'genius-course' && firebaseConfig.projectId !== 'genius-course')
   ? getFirestore(app, appletConfig.firestoreDatabaseId)
   : getFirestore(app);
 export const storage = getStorage(app);

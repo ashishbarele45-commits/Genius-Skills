@@ -29,10 +29,12 @@ if (apps.length > 0) {
   });
 }
 
-console.log(`[FirebaseAdmin] Initialized for project: genius-course, databaseId: ${appletConfig.firestoreDatabaseId || '(default)'}`);
+console.log(`[FirebaseAdmin] Initialized for project: genius-course, databaseId: ${appletConfig.projectId === 'genius-course' ? '(default)' : (appletConfig.firestoreDatabaseId || '(default)')}`);
 
 export const adminAuth = getAuth(app);
-export const adminDb = getFirestore(app, appletConfig.firestoreDatabaseId);
+export const adminDb = (appletConfig.firestoreDatabaseId && appletConfig.projectId !== 'genius-course')
+  ? getFirestore(app, appletConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const adminStorage = getStorage(app);
 
 export async function setAdminClaimsForUser(uid: string): Promise<boolean> {

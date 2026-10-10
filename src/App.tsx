@@ -285,34 +285,6 @@ function AppContent() {
       return <VerifyCertificatePage initialCode={verifyMatch[1]} navigate={navigate} />;
     }
 
-    // Temporary Debug Route
-    if (currentPath === '/_debug_config') {
-      const firebaseConfig = (import.meta as any).env || {};
-      return (
-        <div className="pt-36 pb-20 px-4 text-center max-w-2xl mx-auto min-h-screen relative z-10">
-          <div className="p-10 rounded-[32px] bg-white/[0.025] border border-white/10 shadow-2xl backdrop-blur-2xl text-left font-mono text-xs overflow-auto max-h-[60vh]">
-            <h2 className="text-lg font-bold text-white mb-4">Runtime Config Debug</h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-blue-400 font-bold mb-1 underline">import.meta.env:</h3>
-                <pre>{JSON.stringify(firebaseConfig, null, 2)}</pre>
-              </div>
-              <div>
-                <h3 className="text-green-400 font-bold mb-1 underline">Bundled Firebase Config (Hardcoded in firebase.ts):</h3>
-                <pre>
-                  {`apiKey: "AIzaSyC2SDgR1jsvq4TnaVvLu-8mFvKgLsZJv1s"\nappId: "1:465240710133:web:92b9f4b555ff3d915e5ebc"`}
-                </pre>
-              </div>
-              <div>
-                <h3 className="text-yellow-400 font-bold mb-1 underline">firebase-applet-config.json:</h3>
-                <pre>{JSON.stringify(appletConfig, null, 2)}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     // 16. Legal pages
     if (currentPath === '/privacy') {
       return <LegalPage type="privacy" />;
